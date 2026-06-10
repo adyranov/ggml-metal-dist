@@ -1,0 +1,367 @@
+{
+  "ci": {
+    "architectures": [
+      {
+        "arch": "x86_64",
+        "runs_on": "macos-15-intel"
+      },
+      {
+        "arch": "arm64",
+        "runs_on": "macos-15"
+      }
+    ]
+  },
+  "repos": {
+    "ggml": {
+      "url": "https://github.com/adyranov/ggml.git",
+      "branch": "metal-intel-mac",
+      "upstream_url": "https://github.com/ggml-org/ggml.git",
+      "upstream_ref": "v0.15.1"
+    },
+    "llama-cpp": {
+      "upstream_url": "https://github.com/ggml-org/llama.cpp.git",
+      "upstream_ref": "b9637"
+    },
+    "whisper-cpp": {
+      "upstream_url": "https://github.com/ggml-org/whisper.cpp.git",
+      "upstream_ref": "v1.8.6",
+      "patches": [
+        "patches/whisper-cpp/0001-gated-delta-net-api.patch"
+      ]
+    },
+    "stable-diffusion-cpp": {
+      "upstream_url": "https://github.com/leejet/stable-diffusion.cpp.git",
+      "upstream_ref": "master-703-bb90bfa",
+      "patches": [
+        "patches/stable-diffusion-cpp/0001-gate-server-example-build.patch"
+      ]
+    },
+    "parakeet-cpp": {
+      "upstream_url": "https://github.com/mudler/parakeet.cpp.git",
+      "upstream_ref": "v0.2.0",
+      "ggml_path": "third_party/ggml"
+    }
+  },
+  "tools": {
+    "ggml": {
+      "repo": "ggml",
+      "pipelines": [
+        "unit",
+        "build"
+      ],
+      "cmake_flags": [
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DGGML_METAL=ON",
+        "-DGGML_METAL_EMBED_LIBRARY=ON",
+        "-DBUILD_SHARED_LIBS=OFF"
+      ],
+      "build_targets": [
+        "test-backend-ops"
+      ],
+      "install_targets": [
+        "test-backend-ops"
+      ],
+      "binaries": [
+        "test-backend-ops"
+      ],
+      "depends_on": []
+    },
+    "llama-cpp": {
+      "repo": "llama-cpp",
+      "pipelines": [
+        "build",
+        "integration",
+        "performance",
+        "release"
+      ],
+      "cmake_flags": [
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DGGML_METAL=ON",
+        "-DGGML_METAL_EMBED_LIBRARY=ON",
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DLLAMA_USE_SYSTEM_GGML=OFF",
+        "-DLLAMA_OPENSSL=ON",
+        "-DLLAMA_BUILD_TESTS=ON",
+        "-DLLAMA_TESTS_INSTALL=OFF",
+        "-DLLAMA_BUILD_EXAMPLES=OFF",
+        "-DLLAMA_BUILD_TOOLS=ON",
+        "-DLLAMA_BUILD_SERVER=ON",
+        "-DLLAMA_BUILD_APP=ON",
+        "-DLLAMA_BUILD_UI=OFF",
+        "-DLLAMA_TOOLS_INSTALL=ON"
+      ],
+      "build_targets": [
+        "llama-app",
+        "llama-cli",
+        "llama-completion",
+        "llama-server",
+        "llama-bench",
+        "llama-quantize",
+        "llama-gguf-split",
+        "llama-mtmd-cli",
+        "llama-imatrix",
+        "llama-perplexity",
+        "llama-tokenize",
+        "llama-tts",
+        "llama-export-lora",
+        "llama-cvector-generator",
+        "llama-batched-bench",
+        "llama-fit-params",
+        "llama-results",
+        "llama-debug-template-parser",
+        "llama-template-analysis",
+        "test-backend-ops"
+      ],
+      "install_targets": [
+        "install"
+      ],
+      "binaries": [
+        "llama",
+        "llama-cli",
+        "llama-completion",
+        "llama-server",
+        "llama-bench",
+        "llama-quantize",
+        "llama-gguf-split",
+        "llama-mtmd-cli",
+        "llama-imatrix",
+        "llama-perplexity",
+        "llama-tokenize",
+        "llama-tts",
+        "llama-export-lora",
+        "llama-cvector-generator",
+        "llama-batched-bench",
+        "llama-fit-params",
+        "llama-results",
+        "llama-debug-template-parser",
+        "llama-template-analysis"
+      ],
+      "depends_on": [
+        "openssl@3"
+      ],
+      "models": {
+        "smoke": [
+          {
+            "name": "Qwen3-0.6B",
+            "repo": "unsloth/Qwen3-0.6B-GGUF",
+            "file": "Qwen3-0.6B-Q4_K_M.gguf",
+            "preset": "smoke",
+            "samplers": "--reasoning off --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0"
+          }
+        ],
+        "full": [
+          {
+            "name": "Qwen3-0.6B",
+            "repo": "unsloth/Qwen3-0.6B-GGUF",
+            "file": "*[Qq]8_0*.gguf",
+            "preset": "smoke",
+            "samplers": "--reasoning off --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0"
+          },
+          {
+            "name": "Qwen3.5-9B",
+            "repo": "unsloth/Qwen3.5-9B-GGUF",
+            "file": "Qwen3.5-9B-UD-Q6_K_XL.gguf",
+            "preset": "code",
+            "samplers": "--reasoning off --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0"
+          },
+          {
+            "name": "Gemma-4-12B-it",
+            "repo": "unsloth/gemma-4-12b-it-GGUF",
+            "file": "gemma-4-12b-it-UD-Q4_K_XL.gguf",
+            "preset": "reason",
+            "samplers": "--temp 1.0 --top-p 0.95 --top-k 64 --min-p 0"
+          },
+          {
+            "name": "DeepSeek-Coder-V2-Lite-Instruct",
+            "repo": "bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF",
+            "file": "*[Qq]4_[Kk]_[Mm]*.gguf",
+            "preset": "long",
+            "samplers": "--temp 0.6 --top-p 0.95 --min-p 0"
+          }
+        ]
+      }
+    },
+    "whisper-cpp": {
+      "repo": "whisper-cpp",
+      "pipelines": [
+        "build",
+        "integration",
+        "performance",
+        "release"
+      ],
+      "cmake_flags": [
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DGGML_METAL=ON",
+        "-DGGML_METAL_EMBED_LIBRARY=ON",
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DWHISPER_USE_SYSTEM_GGML=OFF",
+        "-DWHISPER_SDL2=ON",
+        "-DWHISPER_BUILD_EXAMPLES=ON",
+        "-DWHISPER_BUILD_TESTS=OFF"
+      ],
+      "build_targets": [
+        "whisper-cli",
+        "whisper-bench",
+        "whisper-server",
+        "whisper-command",
+        "whisper-stream",
+        "whisper-talk-llama",
+        "whisper-lsp",
+        "whisper-vad-speech-segments",
+        "whisper-quantize"
+      ],
+      "install_targets": [
+        "install"
+      ],
+      "binaries": [
+        "whisper-cli",
+        "whisper-bench",
+        "whisper-server",
+        "whisper-command",
+        "whisper-stream",
+        "whisper-talk-llama",
+        "whisper-lsp",
+        "whisper-vad-speech-segments",
+        "whisper-quantize"
+      ],
+      "depends_on": [
+        "sdl2"
+      ],
+      "models": {
+        "smoke": [
+          {
+            "name": "tiny.en",
+            "id": "tiny.en"
+          }
+        ],
+        "full": [
+          {
+            "name": "base.en",
+            "id": "base.en"
+          },
+          {
+            "name": "small.en",
+            "id": "small.en"
+          },
+          {
+            "name": "large-v3-turbo",
+            "id": "large-v3-turbo"
+          }
+        ]
+      }
+    },
+    "stable-diffusion-cpp": {
+      "repo": "stable-diffusion-cpp",
+      "pipelines": [
+        "build",
+        "integration",
+        "performance",
+        "release"
+      ],
+      "exclude_archs": [
+        "x86_64"
+      ],
+      "cmake_flags": [
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DSD_METAL=ON",
+        "-DGGML_METAL_EMBED_LIBRARY=ON",
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DSD_BUILD_SHARED_LIBS=OFF",
+        "-DSD_BUILD_SHARED_GGML_LIB=OFF",
+        "-DSD_BUILD_SERVER=OFF",
+        "-DSD_USE_SYSTEM_GGML=OFF"
+      ],
+      "build_targets": [
+        "sd-cli"
+      ],
+      "install_targets": [
+        "install"
+      ],
+      "binaries": [
+        "sd-cli"
+      ],
+      "depends_on": [],
+      "models": {
+        "smoke": [
+          {
+            "name": "sdxs-512",
+            "family": "sdxs",
+            "repo": "concedo/sdxs-512-tinySDdistilled-GGUF",
+            "file_tpl": "sdxs-512-tinySDdistilled_Q8_0.gguf",
+            "steps": 1,
+            "cfg": 1.0,
+            "neg": false
+          }
+        ],
+        "full": [
+          {
+            "name": "z-image-turbo",
+            "family": "zimg",
+            "repo": "leejet/Z-Image-Turbo-GGUF",
+            "file_tpl": "z_image_turbo-{quant}.gguf",
+            "steps": 8,
+            "cfg": 1.0,
+            "neg": false
+          },
+          {
+            "name": "flux1-schnell",
+            "family": "flux",
+            "repo": "second-state/FLUX.1-schnell-GGUF",
+            "file_tpl": "flux1-schnell-{quant}.gguf",
+            "steps": 4,
+            "cfg": 1.0,
+            "neg": false
+          }
+        ]
+      }
+    },
+    "parakeet-cpp": {
+      "repo": "parakeet-cpp",
+      "pipelines": [
+        "build",
+        "integration",
+        "release"
+      ],
+      "cmake_flags": [
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=bin",
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DGGML_STATIC=ON",
+        "-DPARAKEET_GGML_METAL=ON",
+        "-DPARAKEET_BUILD_CLI=ON",
+        "-DPARAKEET_BUILD_TESTS=OFF",
+        "-DPARAKEET_SHARED=OFF"
+      ],
+      "build_targets": [
+        "parakeet-cli"
+      ],
+      "install_targets": [
+        "parakeet-cli"
+      ],
+      "binaries": [
+        "parakeet-cli"
+      ],
+      "depends_on": [],
+      "models": {
+        "smoke": [
+          {
+            "name": "tdt_ctc-110m-q4_k",
+            "repo": "mudler/parakeet-cpp-gguf",
+            "file": "tdt_ctc-110m-q4_k.gguf",
+            "decoder": "tdt",
+            "expected": "well i don't wish to see it any more observed phoebe turning away her eyes it is certainly very like the old portrait"
+          }
+        ],
+        "full": [
+          {
+            "name": "tdt_ctc-1.1b-q8_0",
+            "repo": "mudler/parakeet-cpp-gguf",
+            "file": "tdt_ctc-1.1b-q8_0.gguf",
+            "decoder": "tdt",
+            "expected": "well i don't wish to see it any more observed phoebe turning away her eyes it is certainly very like the old portrait"
+          }
+        ]
+      }
+    }
+  }
+}

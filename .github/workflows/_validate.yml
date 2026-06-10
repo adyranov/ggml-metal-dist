@@ -1,0 +1,96 @@
+name: Validate
+on:
+  workflow_call:
+    inputs:
+      type:
+        required: true
+        type: string
+        description: "Test type (unit, build, integration, performance)"
+      tier:
+        required: true
+        type: string
+        description: "Model tier (smoke or full)"
+      matrix:
+        required: true
+        type: string
+        description: "Validation matrix JSON"
+      brew_deps:
+        required: true
+        type: string
+        description: "Homebrew dependencies"
+      has_work:
+        required: true
+        type: string
+        description: "true when matrix contains at least one row"
+      ggml_head:
+        required: false
+        type: string
+        description: "Expected reconciled ggml HEAD"
+        default: ""
+permissions:
+  contents: read
+jobs:
+  validate:
+    if: inputs.has_work == 'true'
+    timeout-minutes: ${{ inputs.type == 'unit' && 20 || inputs.type == 'performance' && 90 || 60 }}
+    strategy:
+      fail-fast: ${{ inputs.type == 'unit' }}
+      matrix: ${{ fromJson(inputs.matrix) }}
+    runs-on: ${{ matrix.runs-on }}
+    env:
+      HF_CACHE_KEY_PREFIX: hf-models-${{ inputs.tier }}-${{ matrix.tool }}
+      HF_HOME: ${{ github.workspace }}/.hf-cache
+      HF_HUB_CACHE: ${{ github.workspace }}/.hf-cache/hub
+      HUGGINGFACE_HUB_CACHE: ${{ github.workspace }}/.hf-cache/hub
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - id: setup_build_env
+        uses: ./.github/actions/setup-build-env
+        with:
+          brew_deps: ${{ inputs.brew_deps }}
+          runs_on: ${{ matrix.runs-on }}
+          tool: ${{ matrix.tool }}
+          enable_ccache: ${{ inputs.type == 'unit' || inputs.type == 'build' }}
+          cache_prefix: ""
+      - name: Setup mise
+        uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
+      - name: Prepare Hugging Face models cache
+        if: inputs.type != 'unit'
+        run: mkdir -p "$HF_HUB_CACHE"
+      - name: Restore Hugging Face models cache
+        id: hf-cache
+        if: inputs.type != 'unit'
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.HF_HUB_CACHE }}
+          key: ${{ env.HF_CACHE_KEY_PREFIX }}-${{ hashFiles('manifest.json') }}
+          restore-keys: |
+            ${{ env.HF_CACHE_KEY_PREFIX }}-
+      - name: Validate
+        env:
+          EXPECTED_GGML_HEAD: ${{ inputs.ggml_head }}
+          TIER: ${{ inputs.tier }}
+          TOOL: ${{ matrix.tool }}
+          TYPE: ${{ inputs.type }}
+        run: |
+          set -euo pipefail
+          args=(validate "$TOOL" --type "$TYPE" --tier "$TIER" --verbose)
+          [ -z "$EXPECTED_GGML_HEAD" ] || args+=(--expected-ggml-head "$EXPECTED_GGML_HEAD")
+          ./scripts/dist.sh "${args[@]}"
+          ccache --show-stats || true
+      - name: Save Hugging Face models cache
+        if: always() && inputs.type != 'unit' && matrix.arch == 'arm64' && steps.hf-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.HF_HUB_CACHE }}
+          key: ${{ env.HF_CACHE_KEY_PREFIX }}-${{ hashFiles('manifest.json') }}
+      - name: Save ccache
+        if: (inputs.type == 'unit' || inputs.type == 'build') && always() && steps.setup_build_env.outputs.ccache_hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ccache-${{ matrix.tool }}-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}

@@ -1,0 +1,27 @@
+{
+  "chat.tools.terminal.autoApprove": {
+    "git": true,
+    "grep": true,
+    "rg": true,
+    "find": true,
+    "fd": true,
+    "cat": true,
+    "bat": true,
+    "head": true,
+    "tail": true,
+    "awk": true,
+    "wc": true,
+    "sort": true,
+    "jq": true,
+    "eza": true,
+    "dust": true,
+    "delta": true,
+    "shellcheck": true,
+    "python3": true,
+    "pre-commit": true,
+    "ccache": true
+  },
+  "chat.tools.compressOutput.enabled": true,
+  "chat.tools.riskAssessment.enabled": true,
+  "chat.useNestedAgentsMdFiles": true
+}

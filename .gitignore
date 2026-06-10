@@ -1,0 +1,14 @@
+artifacts/
+.ccache/
+scripts/validate/out/
+scripts/validate/work/
+scripts/dist/work/
+*.tar.gz
+*.sha256
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+.ruff_cache/
+*.log
+.vscode/tasks.json

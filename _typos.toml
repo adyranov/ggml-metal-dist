@@ -1,0 +1,22 @@
+[default.extend-words]
+CalVer = "CalVer"
+GCN = "GCN"
+GGML = "GGML"
+GGUF = "GGUF"
+MTL = "MTL"
+RDNA = "RDNA"
+SDL = "SDL"
+UMA = "UMA"
+ggml = "ggml"
+gguf = "gguf"
+keg = "keg"
+llama = "llama"
+mlx = "mlx"
+rpath = "rpath"
+simdgroup = "simdgroup"
+whisper = "whisper"
+yamllint = "yamllint"
+zizmor = "zizmor"
+
+[files]
+extend-exclude = ["manifest.json"]

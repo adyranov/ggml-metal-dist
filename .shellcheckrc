@@ -1,0 +1,4 @@
+external-sources=true
+enable=all
+# Style/noise on existing bash: braces, [[ ]], CDPATH= assignments, sourced vars.
+disable=SC2250,SC2292,SC1007,SC1091,SC2154,SC2034,SC2310,SC2312,SC2015

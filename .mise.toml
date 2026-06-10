@@ -1,0 +1,19 @@
+[settings]
+experimental = true
+
+[tools]
+"aqua:astral-sh/uv" = "0.11.21"
+pre-commit = "latest"
+python = "3.14"
+
+[tasks.lint]
+description = "Run the full pre-commit hook suite"
+run = "pre-commit run --all-files"
+
+[tasks.validate]
+description = "Run smoke validation for all manifest tools"
+run = "./scripts/dist.sh validate"
+
+[tasks.reconcile-dry-run]
+description = "Show planned upstream reconcile changes"
+run = "./scripts/dist.sh reconcile-ggml --dry-run"

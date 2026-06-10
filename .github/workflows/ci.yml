@@ -1,0 +1,79 @@
+name: CI
+on:
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: "Optional base ref for affected-tool detection. Blank = validate all build tools."
+        required: false
+        type: string
+  pull_request:
+    paths:
+      - 'manifest.json'
+      - '.mise.toml'
+      - 'scripts/**'
+      - '.github/actions/**'
+      - '.github/workflows/**'
+      - '.github/renovate.json5'
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      brew_deps: ${{ steps.plan.outputs.brew_deps }}
+      has_work: ${{ steps.plan.outputs.has_work }}
+      affected_base_ref: ${{ steps.plan.outputs.affected_base_ref }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup mise
+        uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
+      - id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          INPUT_BASE_REF: ${{ github.event.inputs.base_ref || '' }}
+        run: |
+          set -euo pipefail
+          args=(plan-ci --event-name "$EVENT_NAME")
+          [ -z "$PR_BASE_SHA" ] || args+=(--pr-base-sha "$PR_BASE_SHA")
+          [ -z "$INPUT_BASE_REF" ] || args+=(--base-ref "$INPUT_BASE_REF")
+          ./scripts/dist.sh "${args[@]}"
+  ggml_head:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      ggml_head: ${{ steps.ggml.outputs.ggml_head }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup mise
+        uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
+      - id: ggml
+        env:
+          BASE_REF: ${{ needs.plan.outputs.affected_base_ref }}
+        run: |
+          set -euo pipefail
+          args=(reconcile-ggml)
+          [ -z "$BASE_REF" ] || args+=(--base-ref "$BASE_REF")
+          ./scripts/dist.sh "${args[@]}"
+  validate:
+    needs: [plan, ggml_head]
+    uses: ./.github/workflows/_validate.yml
+    with:
+      type: build
+      tier: smoke
+      matrix: ${{ needs.plan.outputs.matrix }}
+      brew_deps: ${{ needs.plan.outputs.brew_deps }}
+      has_work: ${{ needs.plan.outputs.has_work }}
+      ggml_head: ${{ needs.ggml_head.outputs.ggml_head }}
