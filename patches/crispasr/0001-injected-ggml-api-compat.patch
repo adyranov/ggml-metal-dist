@@ -1,0 +1,143 @@
+From ff59b43f02e6dbf68e7b8a6dd908a2da52f22e5c Mon Sep 17 00:00:00 2001
+From: Artem Dyranov <1038141+adyranov@users.noreply.github.com>
+Date: Wed, 17 Jun 2026 00:25:09 -0400
+Subject: [PATCH] compat: injected ggml API shims
+
+---
+ examples/talk-llama/models/delta-net-base.cpp |  2 +-
+ src/core/fastconformer.h                      |  1 +
+ src/core/ggml_crisp_compat.h                  | 46 +++++++++++++++++++
+ src/core/sanm.h                               |  1 +
+ src/funasr.cpp                                |  1 +
+ src/paraformer.cpp                            |  1 +
+ src/sensevoice.cpp                            |  1 +
+ 7 files changed, 52 insertions(+), 1 deletion(-)
+ create mode 100644 src/core/ggml_crisp_compat.h
+
+diff --git a/examples/talk-llama/models/delta-net-base.cpp b/examples/talk-llama/models/delta-net-base.cpp
+index df5e52c..d8c5a88 100755
+--- a/examples/talk-llama/models/delta-net-base.cpp
++++ b/examples/talk-llama/models/delta-net-base.cpp
+@@ -383,7 +383,7 @@ std::pair<ggml_tensor*, ggml_tensor*> llm_build_delta_net_base::build_delta_net_
+     GGML_ASSERT(b->ne[0] == 1 && b->ne[1] == H_v && b->ne[2] == n_tokens && b->ne[3] == n_seqs);
+     GGML_ASSERT(s->ne[0] == S_v && s->ne[1] == S_v && s->ne[2] == H_v && s->ne[3] == n_seqs);
+
+-    ggml_tensor* result = ggml_gated_delta_net(ctx0, q, k, v, g, b, s);
++    ggml_tensor* result = ggml_gated_delta_net(ctx0, q, k, v, g, b, s, 1);
+     if (n_tokens == 1) {
+         cb(result, LLAMA_TENSOR_NAME_FGDN_AR, il);
+     } else {
+diff --git a/src/core/fastconformer.h b/src/core/fastconformer.h
+index 89535c6..2ab23b5 100755
+--- a/src/core/fastconformer.h
++++ b/src/core/fastconformer.h
+@@ -25,6 +25,7 @@
+ #pragma once
+
+ #include "ggml.h"
++#include "ggml_crisp_compat.h"
+
+ #include <cmath>
+ #include <cstddef>
+diff --git a/src/core/ggml_crisp_compat.h b/src/core/ggml_crisp_compat.h
+new file mode 100644
+index 0000000..338c2b1
+--- /dev/null
++++ b/src/core/ggml_crisp_compat.h
+@@ -0,0 +1,46 @@
++// Compat shims for CrispASR ops absent from injected adyranov/ggml.
++#pragma once
++
++#include "ggml.h"
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++static inline struct ggml_tensor * ggml_norm_affine(
++        struct ggml_context * ctx,
++        struct ggml_tensor  * a,
++        struct ggml_tensor  * w,
++        struct ggml_tensor  * b,
++        float                 eps) {
++    return ggml_add(ctx, ggml_mul(ctx, ggml_norm(ctx, a, eps), w), b);
++}
++
++static inline struct ggml_tensor * ggml_crisp_view_gate_half(
++        struct ggml_context * ctx,
++        struct ggml_tensor  * a,
++        bool                  second_half) {
++    const int64_t n = a->ne[0] / 2;
++    const size_t  off = second_half ? (size_t) n * a->nb[0] : 0;
++    return ggml_view_2d(ctx, a, n, a->ne[1], a->nb[1], off);
++}
++
++static inline struct ggml_tensor * ggml_siglu(
++        struct ggml_context * ctx,
++        struct ggml_tensor  * a) {
++    struct ggml_tensor * gate = ggml_crisp_view_gate_half(ctx, a, false);
++    struct ggml_tensor * val  = ggml_crisp_view_gate_half(ctx, a, true);
++    return ggml_mul(ctx, ggml_sigmoid(ctx, gate), val);
++}
++
++static inline struct ggml_tensor * ggml_siglu_swapped(
++        struct ggml_context * ctx,
++        struct ggml_tensor  * a) {
++    struct ggml_tensor * gate = ggml_crisp_view_gate_half(ctx, a, false);
++    struct ggml_tensor * val  = ggml_crisp_view_gate_half(ctx, a, true);
++    return ggml_mul(ctx, gate, ggml_sigmoid(ctx, val));
++}
++
++#ifdef __cplusplus
++}
++#endif
+diff --git a/src/core/sanm.h b/src/core/sanm.h
+index e0fb0a0..2b4dd05 100755
+--- a/src/core/sanm.h
++++ b/src/core/sanm.h
+@@ -46,6 +46,7 @@
+ #pragma once
+
+ #include "ggml.h"
++#include "ggml_crisp_compat.h"
+
+ #include <cmath>
+ #include <cstddef>
+diff --git a/src/funasr.cpp b/src/funasr.cpp
+index 9cef882..76701d8 100755
+--- a/src/funasr.cpp
++++ b/src/funasr.cpp
+@@ -10,6 +10,7 @@
+ #include "ggml-backend.h"
+ #include "ggml-cpu.h"
+ #include "ggml.h"
++#include "core/ggml_crisp_compat.h"
+ #include "gguf.h"
+
+ #include "core/attention.h"
+diff --git a/src/paraformer.cpp b/src/paraformer.cpp
+index c049145..9a6b0c9 100755
+--- a/src/paraformer.cpp
++++ b/src/paraformer.cpp
+@@ -14,6 +14,7 @@
+ #include "core/gguf_loader.h"
+
+ #include "ggml.h"
++#include "core/ggml_crisp_compat.h"
+ #include "ggml-backend.h"
+ #include "ggml-cpu.h"
+
+diff --git a/src/sensevoice.cpp b/src/sensevoice.cpp
+index a1466a7..8e2e90e 100755
+--- a/src/sensevoice.cpp
++++ b/src/sensevoice.cpp
+@@ -10,6 +10,7 @@
+ #include "ggml-backend.h"
+ #include "ggml-cpu.h"
+ #include "ggml.h"
++#include "core/ggml_crisp_compat.h"
+ #include "gguf.h"
+
+ #include "core/ctc.h"
+--
+2.54.0

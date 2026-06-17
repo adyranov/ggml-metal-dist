@@ -40,6 +40,14 @@
       "upstream_url": "https://github.com/mudler/parakeet.cpp.git",
       "upstream_ref": "v0.2.0",
       "ggml_path": "third_party/ggml"
+    },
+    "crispasr": {
+      "upstream_url": "https://github.com/CrispStrobe/CrispASR.git",
+      "upstream_ref": "v0.7.2",
+      "patches": [
+        "patches/crispasr/0001-injected-ggml-api-compat.patch",
+        "patches/crispasr/0002-indextts-aa-native.patch"
+      ]
     }
   },
   "tools": {
@@ -359,6 +367,87 @@
             "file": "tdt_ctc-1.1b-q8_0.gguf",
             "decoder": "tdt",
             "expected": "well i don't wish to see it any more observed phoebe turning away her eyes it is certainly very like the old portrait"
+          }
+        ]
+      }
+    },
+    "crispasr": {
+      "repo": "crispasr",
+      "pipelines": [
+        "build",
+        "integration",
+        "release"
+      ],
+      "cmake_flags": [
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DGGML_METAL=ON",
+        "-DGGML_METAL_EMBED_LIBRARY=ON",
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DCRISPASR_USE_SYSTEM_GGML=OFF",
+        "-DCRISPASR_BUILD_TESTS=OFF",
+        "-DCRISPASR_BUILD_EXAMPLES=ON",
+        "-DCRISPASR_BUILD_SERVER=OFF",
+        "-DCRISPASR_SDL2=OFF",
+        "-DCRISPASR_CURL=OFF"
+      ],
+      "build_targets": [
+        "crispasr-cli",
+        "crispasr-quantize"
+      ],
+      "install_targets": [
+        "crispasr",
+        "crispasr-quantize"
+      ],
+      "binaries": [
+        "crispasr",
+        "crispasr-quantize"
+      ],
+      "depends_on": [],
+      "models": {
+        "smoke": [
+          {
+            "name": "whisper-tiny.en",
+            "backend": "",
+            "repo": "ggerganov/whisper.cpp",
+            "file": "ggml-tiny.en.bin",
+            "expected": "country fellow americans"
+          },
+          {
+            "name": "parakeet-tdt_ctc-110m",
+            "backend": "parakeet",
+            "repo": "cstr/parakeet-tdt_ctc-110m-GGUF",
+            "file": "parakeet-tdt_ctc-110m-q4_k.gguf",
+            "expected": "country fellow americans"
+          }
+        ],
+        "full": [
+          {
+            "name": "whisper-base.en",
+            "backend": "",
+            "repo": "ggerganov/whisper.cpp",
+            "file": "ggml-base.en.bin",
+            "expected": "country fellow americans"
+          },
+          {
+            "name": "parakeet-tdt-0.6b-v3",
+            "backend": "parakeet",
+            "repo": "cstr/parakeet-tdt-0.6b-v3-GGUF",
+            "file": "parakeet-tdt-0.6b-v3-q4_k.gguf",
+            "expected": "country fellow americans"
+          },
+          {
+            "name": "cohere-transcribe-03-2026",
+            "backend": "cohere",
+            "repo": "cstr/cohere-transcribe-03-2026-GGUF",
+            "file": "cohere-transcribe-q5_0.gguf",
+            "expected": "country fellow americans"
+          },
+          {
+            "name": "qwen3-asr-0.6b",
+            "backend": "qwen3",
+            "repo": "cstr/qwen3-asr-0.6b-GGUF",
+            "file": "qwen3-asr-0.6b-q4_k.gguf",
+            "expected": "country fellow americans"
           }
         ]
       }

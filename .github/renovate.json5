@@ -57,6 +57,17 @@
       datasourceTemplate: "github-tags",
       versioningTemplate: "semver",
     },
+    {
+      customType: "regex",
+      description: "Track CrispASR upstream releases (semver)",
+      managerFilePatterns: ["/^manifest\\.json$/"],
+      matchStrings: [
+        '"upstream_url":\\s*"https://github\\.com/CrispStrobe/CrispASR\\.git",\\s*"upstream_ref":\\s*"(?<currentValue>[^"]+)"',
+      ],
+      depNameTemplate: "CrispStrobe/CrispASR",
+      datasourceTemplate: "github-tags",
+      versioningTemplate: "semver",
+    },
   ],
   packageRules: [
     {
@@ -91,7 +102,7 @@
     },
     {
       description: "Low-frequency upstreams — update after release buffer",
-      matchDepNames: ["ggml-org/ggml", "ggml-org/whisper.cpp", "mudler/parakeet.cpp"],
+      matchDepNames: ["ggml-org/ggml", "ggml-org/whisper.cpp", "mudler/parakeet.cpp", "CrispStrobe/CrispASR"],
       schedule: ["at any time"],
       minimumReleaseAge: "2 days",
       branchPrefix: "renovate/upstream-",

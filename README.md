@@ -23,9 +23,10 @@ brew install adyranov/tap/llama-cpp          # llama.cpp
 brew install adyranov/tap/whisper-cpp        # whisper.cpp (needs sdl2)
 brew install adyranov/tap/stable-diffusion-cpp   # stable-diffusion.cpp
 brew install adyranov/tap/parakeet-cpp       # parakeet.cpp
+brew install adyranov/tap/crispasr           # CrispASR
 ```
 
-Per-tool details: [llama-cpp](docs/llama-cpp.md) · [whisper-cpp](docs/whisper-cpp.md) · [stable-diffusion-cpp](docs/stable-diffusion-cpp.md) · [parakeet-cpp](docs/parakeet-cpp.md).
+Per-tool details: [llama-cpp](docs/llama-cpp.md) · [whisper-cpp](docs/whisper-cpp.md) · [stable-diffusion-cpp](docs/stable-diffusion-cpp.md) · [parakeet-cpp](docs/parakeet-cpp.md) · [crispasr](docs/crispasr.md).
 
 ## 🧰 Prerequisites (build & develop)
 

@@ -11,6 +11,7 @@ Central docs for the Metal-enabled ggml patch and the tools built from it. Agent
 | [whisper-cpp.md](whisper-cpp.md) | 🎤 whisper-cpp build targets, SDL2 dependency, validation |
 | [stable-diffusion-cpp.md](stable-diffusion-cpp.md) | 🎨 stable-diffusion-cpp build targets and validation |
 | [parakeet-cpp.md](parakeet-cpp.md) | 🐦 parakeet-cpp build target, validation, and bootstrap status |
+| [crispasr.md](crispasr.md) | 🎙️ CrispASR unified ASR CLI, validation, ggml injection |
 | [release-process.md](release-process.md) | 🏷️ Versioning, CI workflows, cutting a release |
 
 ## 🚀 Quick start

@@ -231,6 +231,7 @@ MODEL_FIELDS: dict[str, list[str]] = {
     "whisper-cpp": ["name", "id"],
     "stable-diffusion-cpp": ["name", "family", "repo", "file_tpl", "steps", "cfg", "neg"],
     "parakeet-cpp": ["name", "repo", "file", "decoder", "expected"],
+    "crispasr": ["name", "repo", "file", "expected", "backend"],
 }
 
 
