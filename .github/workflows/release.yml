@@ -6,10 +6,6 @@ on:
         description: "Override version (e.g. v26.6.1). Leave empty to auto-detect next CalVer."
         required: false
         type: string
-      affected_base_ref:
-        description: "Optional base ref for affected release matrix. Blank = release all tools."
-        required: false
-        type: string
 permissions:
   contents: read
 concurrency:
@@ -23,11 +19,13 @@ jobs:
       version: ${{ steps.plan.outputs.version }}
       ci_matrix: ${{ steps.plan.outputs.ci_matrix }}
       release_matrix: ${{ steps.plan.outputs.release_matrix }}
+      prefetch_matrix: ${{ steps.plan.outputs.prefetch_matrix }}
       ci_brew_deps: ${{ steps.plan.outputs.ci_brew_deps }}
       release_brew_deps: ${{ steps.plan.outputs.release_brew_deps }}
       affected_base_ref: ${{ steps.plan.outputs.affected_base_ref }}
       has_ci_work: ${{ steps.plan.outputs.has_ci_work }}
       has_release_work: ${{ steps.plan.outputs.has_release_work }}
+      prefetch_has_work: ${{ steps.plan.outputs.prefetch_has_work }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -38,18 +36,24 @@ jobs:
       - id: plan
         env:
           INPUT_VERSION: ${{ inputs.version }}
-          AFFECTED_BASE_REF: ${{ inputs.affected_base_ref }}
         run: |
           set -euo pipefail
           args=(plan-release)
           [ -z "$INPUT_VERSION" ] || args+=(--version "$INPUT_VERSION")
-          [ -z "$AFFECTED_BASE_REF" ] || args+=(--base-ref "$AFFECTED_BASE_REF")
           ./scripts/dist.sh "${args[@]}"
       - name: Summarize release version
         env:
           RELEASE_VERSION: ${{ steps.plan.outputs.version }}
         run: |
           echo "### Release version: \`${RELEASE_VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
+  prefetch:
+    needs: plan
+    if: needs.plan.outputs.prefetch_has_work == 'true'
+    uses: ./.github/workflows/_prefetch.yml
+    secrets: inherit
+    with:
+      tier: smoke
+      matrix: ${{ needs.plan.outputs.prefetch_matrix }}
   ggml_head:
     needs: plan
     runs-on: ubuntu-24.04
@@ -71,18 +75,8 @@ jobs:
           args=(reconcile-ggml)
           [ -z "$BASE_REF" ] || args+=(--base-ref "$BASE_REF")
           ./scripts/dist.sh "${args[@]}"
-  ci:
-    needs: [plan, ggml_head]
-    uses: ./.github/workflows/_validate.yml
-    with:
-      type: build
-      tier: smoke
-      matrix: ${{ needs.plan.outputs.ci_matrix }}
-      brew_deps: ${{ needs.plan.outputs.ci_brew_deps }}
-      has_work: ${{ needs.plan.outputs.has_ci_work }}
-      ggml_head: ${{ needs.ggml_head.outputs.ggml_head }}
   build-release:
-    needs: [plan, ggml_head, ci]
+    needs: [plan, ggml_head, prefetch]
     if: needs.plan.outputs.has_release_work == 'true'
     timeout-minutes: 90
     strategy:
@@ -120,6 +114,48 @@ jobs:
           ./scripts/dist.sh build "$TOOL" --arch "$ARCH" --version "$VERSION" \
             --expected-ggml-head "$EXPECTED_GGML_HEAD"
           ccache --show-stats || true
+      - name: Restore Hugging Face models cache
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: .hf-cache/hub
+          key: hf-models-smoke-${{ matrix.tool }}-${{ hashFiles('manifest.json') }}
+          restore-keys: |
+            hf-models-smoke-${{ matrix.tool }}-
+          enableCrossOsArchive: true
+      - name: Verify Hugging Face models cache
+        env:
+          TOOL: ${{ matrix.tool }}
+          CI_MATRIX: ${{ needs.plan.outputs.ci_matrix }}
+        run: |
+          IS_TESTABLE=$(python3 -c "
+          import json, os
+          m = json.loads(os.environ['CI_MATRIX'])
+          tool, arch = os.environ['TOOL'], os.environ['ARCH']
+          print('true' if any(r.get('tool')==tool and r.get('arch')==arch and r.get('type')!='unit' for r in m.get('include', [])) else 'false')
+          ")
+          if [ "$IS_TESTABLE" = "true" ]; then
+            HF_HOME=${GITHUB_WORKSPACE}/.hf-cache HF_HUB_CACHE=${GITHUB_WORKSPACE}/.hf-cache/hub HUGGINGFACE_HUB_CACHE=${GITHUB_WORKSPACE}/.hf-cache/hub \
+            ./scripts/dist.sh verify-hf-cache "$TOOL" --tier smoke
+          fi
+      - name: Validate built package
+        env:
+          CI_MATRIX: ${{ needs.plan.outputs.ci_matrix }}
+        run: |
+          VALIDATE_TYPE=$(python3 -c "
+          import json, os
+          m = json.loads(os.environ['CI_MATRIX'])
+          tool, arch = os.environ['TOOL'], os.environ['ARCH']
+          print(next((r.get('type') for r in m.get('include', []) if r.get('tool')==tool and r.get('arch')==arch), 'none'))
+          ")
+          if [ "$VALIDATE_TYPE" != "none" ]; then
+            TAR_FILE="artifacts/${TOOL}-${VERSION}-${ARCH}-apple-darwin.tar.gz"
+            tar -xzf "$TAR_FILE" -C artifacts/
+            BIN_DIR="$(pwd)/artifacts/${TOOL}-${VERSION}/bin"
+            HF_HOME=${GITHUB_WORKSPACE}/.hf-cache HF_HUB_CACHE=${GITHUB_WORKSPACE}/.hf-cache/hub HUGGINGFACE_HUB_CACHE=${GITHUB_WORKSPACE}/.hf-cache/hub \
+            ./scripts/dist.sh validate "$TOOL" --type "$VALIDATE_TYPE" --tier smoke --bin-dir "$BIN_DIR"
+          else
+            echo "Skipping validation for ${TOOL} on ${ARCH} (excluded from CI)"
+          fi
       - name: Verify package artifact
         env:
           ARTIFACT_DIR: ${{ github.workspace }}/artifacts
@@ -149,7 +185,7 @@ jobs:
           subject-path: artifacts/
           github-token: ${{ secrets.GITHUB_TOKEN }}
   release:
-    needs: [plan, ci, build-release]
+    needs: [plan, build-release]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

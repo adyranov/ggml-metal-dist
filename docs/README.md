@@ -12,6 +12,8 @@ Central docs for the Metal-enabled ggml patch and the tools built from it. Agent
 | [stable-diffusion-cpp.md](stable-diffusion-cpp.md) | 🎨 stable-diffusion-cpp build targets and validation |
 | [parakeet-cpp.md](parakeet-cpp.md) | 🐦 parakeet-cpp build target, validation, and bootstrap status |
 | [crispasr.md](crispasr.md) | 🎙️ CrispASR unified ASR CLI, validation, ggml injection |
+| [acestep-cpp.md](acestep-cpp.md) | 🎵 acestep.cpp music generation, validation, custom ggml ops |
+| [omnivoice-cpp.md](omnivoice-cpp.md) | 🗣️ omnivoice.cpp TTS / voice cloning, validation |
 | [release-process.md](release-process.md) | 🏷️ Versioning, CI workflows, cutting a release |
 
 ## 🚀 Quick start

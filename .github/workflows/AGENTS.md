@@ -25,12 +25,14 @@ GitHub Actions workflows for lint, validate, build, and release.
 - Key caches on `manifest.json` hash (and tool/arch where relevant).
 - Unit type: brew + ccache only (no model downloads).
 - Build/integration/performance: all caches (brew, pip, ccache, HF models).
+- HF models: `_prefetch.yml` (Ubuntu) downloads once per tool; macOS `_validate.yml` jobs restore the same key (`hf-models-${tier}-${tool}-${manifest_hash}`). Use `enableCrossOsArchive: true` on prefetch save and validate restore; validate restore is exact-key only (`fail-on-cache-miss: true`, no `restore-keys`). `actions/cache/*` uses the runner-injected `ACTIONS_RUNTIME_TOKEN`, not `GITHUB_TOKEN` `actions` scope — keep reusable workflows at `contents: read` only.
 
 ## Validation scope
 
-- **`_validate.yml`**: Thin reusable workflow parameterized by a precomputed manifest matrix, `type`, and `tier`.
-- **`ci.yml`**: PR/manual gate. It plans scope, reconciles ggml locally, and calls `_validate.yml`.
-- **`release.yml`**: Manual release. It plans the release, reconciles ggml locally, validates, builds matrix artifacts, and publishes.
+- **`_prefetch.yml`**: Ubuntu job that runs `dist.sh prefetch` per tool (arch-independent matrix) and saves the HF cache.
+- **`_validate.yml`**: Thin reusable workflow parameterized by a precomputed manifest matrix, `type`, and `tier`. Restores HF cache populated by `_prefetch.yml`, verifies files are present (`verify-hf-cache`), then builds/validates.
+- **`ci.yml`**: PR/manual gate. Plans scope, prefetches models, reconciles ggml, and calls `_validate.yml`.
+- **`release.yml`**: Manual release. Plans the release, prefetches models, reconciles ggml, validates, builds matrix artifacts, and publishes.
 
 ## Homebrew speedups (macOS jobs)
 

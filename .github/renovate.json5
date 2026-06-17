@@ -68,6 +68,30 @@
       datasourceTemplate: "github-tags",
       versioningTemplate: "semver",
     },
+    {
+      customType: "regex",
+      description: "Track acestep.cpp upstream (no tags: pin master commit digest)",
+      managerFilePatterns: ["/^manifest\\.json$/"],
+      matchStrings: [
+        '"upstream_url":\\s*"https://github\\.com/ServeurpersoCom/acestep\\.cpp\\.git",\\s*"upstream_ref":\\s*"(?<currentDigest>[0-9a-f]{40})"',
+      ],
+      depNameTemplate: "ServeurpersoCom/acestep.cpp",
+      packageNameTemplate: "https://github.com/ServeurpersoCom/acestep.cpp.git",
+      currentValueTemplate: "master",
+      datasourceTemplate: "git-refs",
+    },
+    {
+      customType: "regex",
+      description: "Track omnivoice.cpp upstream (no tags: pin master commit digest)",
+      managerFilePatterns: ["/^manifest\\.json$/"],
+      matchStrings: [
+        '"upstream_url":\\s*"https://github\\.com/ServeurpersoCom/omnivoice\\.cpp\\.git",\\s*"upstream_ref":\\s*"(?<currentDigest>[0-9a-f]{40})"',
+      ],
+      depNameTemplate: "ServeurpersoCom/omnivoice.cpp",
+      packageNameTemplate: "https://github.com/ServeurpersoCom/omnivoice.cpp.git",
+      currentValueTemplate: "master",
+      datasourceTemplate: "git-refs",
+    },
   ],
   packageRules: [
     {
@@ -102,7 +126,7 @@
     },
     {
       description: "Low-frequency upstreams — update after release buffer",
-      matchDepNames: ["ggml-org/ggml", "ggml-org/whisper.cpp", "mudler/parakeet.cpp", "CrispStrobe/CrispASR"],
+      matchDepNames: ["ggml-org/ggml", "ggml-org/whisper.cpp", "mudler/parakeet.cpp", "CrispStrobe/CrispASR", "ServeurpersoCom/acestep.cpp", "ServeurpersoCom/omnivoice.cpp"],
       schedule: ["at any time"],
       minimumReleaseAge: "2 days",
       branchPrefix: "renovate/upstream-",

@@ -32,10 +32,12 @@ run_ggml() {
     if [ "$MODEL_TIER" = smoke ]; then
         phase "Op checks (smoke)"
         for op in MUL_MAT FLASH_ATTN_EXT; do
+            describe_test "Metal op ${op} vs CPU reference" "test-backend-ops reports OK"
             check "op:${op}" "$TEST_OPS" test -o "$op" -b MTL0 </dev/null
         done
     else
         phase "Op checks (full suite)"
+        describe_test "full Metal op suite vs CPU reference" "test-backend-ops reports OK"
         check "full-suite" "$TEST_OPS" test -b MTL0 </dev/null
     fi
 

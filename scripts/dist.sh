@@ -16,6 +16,8 @@ Commands:
     plan-ci            Emit CI matrix/scope outputs
     plan-release       Emit release version/matrix outputs
     reconcile-ggml     Rebase patched ggml fork onto manifest upstream_ref
+    prefetch           Download Hugging Face models for validation (no build)
+    verify-hf-cache    Assert manifest HF files are present in the hub cache
     validate           Build/validate one tool or all tools
     build              Build and package one release artifact
     publish-release    Create a GitHub release from artifacts
@@ -260,17 +262,22 @@ cmd_plan_ci() {
 
     if [ "$matrix_mode" = affected ]; then
         matrix=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" matrix build --affected --base-ref "$affected_base_ref")
+        prefetch_matrix=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" matrix prefetch --affected --base-ref "$affected_base_ref")
     else
         matrix=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" matrix build)
+        prefetch_matrix=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" matrix prefetch)
     fi
     brew_deps=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" brew-deps build)
     has_work=$(matrix_has_work "$matrix")
+    prefetch_has_work=$(matrix_has_work "$prefetch_matrix")
 
     emit_output matrix_mode "$matrix_mode"
     emit_output affected_base_ref "$affected_base_ref"
     emit_output matrix "$matrix"
+    emit_output prefetch_matrix "$prefetch_matrix"
     emit_output brew_deps "$brew_deps"
     emit_output has_work "$has_work"
+    emit_output prefetch_has_work "$prefetch_has_work"
 }
 
 next_calver() {
@@ -315,19 +322,23 @@ cmd_plan_release() {
     if [ -n "$affected_base_ref" ]; then
         ci_matrix=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" matrix build --affected --base-ref "$affected_base_ref")
         release_matrix=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" matrix release --affected --base-ref "$affected_base_ref")
+        prefetch_matrix=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" matrix prefetch --affected --base-ref "$affected_base_ref")
     else
         ci_matrix=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" matrix build)
         release_matrix=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" matrix release)
+        prefetch_matrix=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" matrix prefetch)
     fi
     ci_brew_deps=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" brew-deps build)
     release_brew_deps=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" brew-deps release)
     has_ci_work=$(matrix_has_work "$ci_matrix")
     has_release_work=$(matrix_has_work "$release_matrix")
+    prefetch_has_work=$(matrix_has_work "$prefetch_matrix")
 
     emit_output version "$version"
     emit_output matrix "$release_matrix"
     emit_output ci_matrix "$ci_matrix"
     emit_output release_matrix "$release_matrix"
+    emit_output prefetch_matrix "$prefetch_matrix"
     emit_output brew_deps "$release_brew_deps"
     emit_output ci_brew_deps "$ci_brew_deps"
     emit_output release_brew_deps "$release_brew_deps"
@@ -335,6 +346,128 @@ cmd_plan_release() {
     emit_output has_work "$has_release_work"
     emit_output has_ci_work "$has_ci_work"
     emit_output has_release_work "$has_release_work"
+    emit_output prefetch_has_work "$prefetch_has_work"
+}
+
+prefetch_tools_from_matrix() {
+    local matrix_json=$1
+    python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+for row in data.get("include", []):
+    tool = row.get("tool")
+    if tool:
+        print(tool)
+' <<<"$matrix_json"
+}
+
+cmd_prefetch() {
+    local tool="" model_tier=smoke all_mode=0 prefetch_matrix=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --tier) shift; model_tier="${1:-}" ;;
+            --full) model_tier=full ;;
+            --matrix-json) shift; prefetch_matrix="${1:-}" ;;
+            -h|--help)
+                echo "Usage: dist.sh prefetch [tool|all] [--tier smoke|full] [--full] [--matrix-json JSON]"
+                exit 0
+                ;;
+            *)
+                if [ -z "$tool" ]; then
+                    tool=$1
+                else
+                    die "unexpected prefetch argument: $1"
+                fi
+                ;;
+        esac
+        shift
+    done
+    case "$model_tier" in
+        smoke|full) ;;
+        *) die "invalid --tier: ${model_tier} (expected smoke|full)" ;;
+    esac
+    if [ -z "$tool" ] || [ "$tool" = all ]; then
+        all_mode=1
+    fi
+
+    prefetch_one() {
+        local t=$1 repo pattern
+        phase "Prefetch: ${t} (${model_tier})"
+        while IFS=$'\t' read -r repo pattern; do
+            [ -n "$repo" ] || continue
+            hf_fetch "$repo" "$pattern" || die "prefetch failed: ${repo}/${pattern}"
+        done < <(manifest_hf_files "$t" "$model_tier")
+    }
+
+    if [ "$all_mode" = 1 ]; then
+        local tools=() t
+        if [ -n "$prefetch_matrix" ]; then
+            while IFS= read -r t; do
+                [ -n "$t" ] || continue
+                tools+=("$t")
+            done < <(prefetch_tools_from_matrix "$prefetch_matrix")
+        else
+            while IFS= read -r t; do
+                [ -n "$t" ] || continue
+                tools+=("$t")
+            done < <(prefetch_tools_from_matrix "$(python3 "$DIST_ROOT/scripts/manifest_cli.py" matrix prefetch)")
+        fi
+        for t in "${tools[@]:-}"; do
+            prefetch_one "$t"
+        done
+        return 0
+    fi
+
+    is_manifest_tool "$tool" || die "unknown tool: $tool (expected one of: $(tools_usage))"
+    prefetch_one "$tool"
+}
+
+cmd_verify_hf_cache() {
+    local tool="" model_tier=smoke
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --tier) shift; model_tier="${1:-}" ;;
+            --full) model_tier=full ;;
+            -h|--help)
+                echo "Usage: dist.sh verify-hf-cache <tool> [--tier smoke|full] [--full]"
+                return 0
+                ;;
+            *)
+                if [ -z "$tool" ]; then
+                    tool=$1
+                else
+                    die "unexpected verify-hf-cache argument: $1"
+                fi
+                ;;
+        esac
+        shift
+    done
+    case "$model_tier" in
+        smoke|full) ;;
+        *) die "invalid --tier: ${model_tier} (expected smoke|full)" ;;
+    esac
+    [ -n "$tool" ] || die "verify-hf-cache requires a tool name"
+    is_manifest_tool "$tool" || die "unknown tool: $tool (expected one of: $(tools_usage))"
+
+    hf_init_env
+    local repo pattern find_pat cache
+    cache=$(hf_cache_dir)
+    local missing=0
+    while IFS=$'\t' read -r repo pattern; do
+        [ -n "$repo" ] || continue
+        find_pat=${pattern##*/}
+        case "$pattern" in
+            *'?'*|*'*'*) find_pat=$pattern ;;
+            *) ;;
+        esac
+        if _hf_find_cached "$cache" "$repo" "$find_pat" >/dev/null; then
+            detail "hf-cache | ok ${repo}/${pattern}"
+        else
+            detail "hf-cache | miss ${repo}/${pattern}"
+            missing=1
+        fi
+    done < <(manifest_hf_files "$tool" "$model_tier")
+    [ "$missing" -eq 0 ] || die "HF cache incomplete for ${tool} (${model_tier}); run prefetch or restore cache first"
 }
 
 cmd_validate() {
@@ -466,7 +599,7 @@ install_targets() {
     shift 2
     mkdir -p "$stage"
     if [ "${1:-}" = install ]; then
-        cmake --install "$build" --prefix "$stage"
+        run_q cmake --install "$build" --prefix "$stage"
         return 0
     fi
     mkdir -p "$stage/bin"
@@ -569,19 +702,19 @@ cmd_build() {
     need git
     need python3
     if [ "${#depends_on[@]}" -gt 0 ]; then
-        ensure_brew_deps "${depends_on[@]}"
+        ensure_brew_deps "${depends_on[@]:-}"
     fi
 
     prepare_tool_source "$tool" "$src"
     build_tool "$tool" "$src" "$build" "$arch" "$jobs"
-    install_targets "$build" "$stage" "${install_targets_arr[@]}"
+    install_targets "$build" "$stage" "${install_targets_arr[@]:-}"
     prune_dev_artifacts "$stage"
     validate_stage_bins "$tool" "$stage"
 
     codesign_binaries "$stage"
     local dep
     if [ "${#depends_on[@]}" -gt 0 ]; then
-        for dep in "${depends_on[@]}"; do
+        for dep in "${depends_on[@]:-}"; do
             [ -n "$dep" ] || continue
             audit_no_vendored_deps "$stage" "$dep"
         done
@@ -669,6 +802,8 @@ case "$cmd" in
     plan-ci) cmd_plan_ci "$@" ;;
     plan-release) cmd_plan_release "$@" ;;
     reconcile-ggml) cmd_reconcile_ggml "$@" ;;
+    prefetch) cmd_prefetch "$@" ;;
+    verify-hf-cache) cmd_verify_hf_cache "$@" ;;
     validate) cmd_validate "$@" ;;
     build) cmd_build "$@" ;;
     publish-release) cmd_publish_release "$@" ;;

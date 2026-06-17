@@ -16,17 +16,8 @@ TOOL=$(basename "$0" .sh)
 PARAKEET_CLI=$BIN_DIR/parakeet-cli
 THREADS=${THREADS:-$(ncpu)}
 
-# parakeet-cpp model-independent ctests are not built in the release profile yet.
-if [ "$TEST_TYPE" = unit ]; then
-    detail "unit | skipped for ${TOOL}"
-    exit 0
-fi
 
-normalize_text() {
-    tr '[:upper:]' '[:lower:]' \
-        | tr -cs "[:alnum:]'" ' ' \
-        | awk '{$1=$1; print}'
-}
+
 
 run_cli() {
     local label=$1 model=$2 decoder=$3 expected=$4
@@ -34,10 +25,12 @@ run_cli() {
     [ -z "$decoder" ] || args+=(--decoder "$decoder")
 
     detail "run | ${label} (${decoder:-default}, threads=${THREADS})"
+    describe_test "transcribe speech.wav (${label})" "transcript == \"${expected}\""
     # Capture stdout for comparison; keep stderr separate for diagnostics.
     local out_log err_log rc=0
     out_log=$(_mktmp)
     err_log=$(_mktmp)
+    echo_cmd "$PARAKEET_CLI" "${args[@]}"
     "$PARAKEET_CLI" "${args[@]}" >"$out_log" 2>"$err_log" </dev/null || rc=$?
     if [ "$rc" -ne 0 ]; then
         [ ! -s "$err_log" ] || cat "$err_log" >&2
@@ -101,6 +94,13 @@ run_parakeet() {
 if [ "$TEST_TYPE" = performance ]; then
     detail "performance | skipped for ${TOOL} (no stable parser yet)"
     exit 0
-else
+elif [ "$TEST_TYPE" = integration ]; then
     run_parakeet "$@"
+elif [ "$TEST_TYPE" = build ]; then
+    run_parakeet "$@"
+elif [ "$TEST_TYPE" = unit ]; then
+    harness_preamble "$TOOL" "$MODEL_TIER" "$RUN_BUILD"
+    detail "unit | ${TOOL} compiled successfully (no unit tests configured)"
+else
+    detail "${TEST_TYPE} | skipped for ${TOOL}"
 fi

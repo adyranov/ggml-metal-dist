@@ -16,27 +16,8 @@ TOOL=$(basename "$0" .sh)
 CRISPASR_CLI=$BIN_DIR/crispasr
 THREADS=${THREADS:-$(ncpu)}
 
-if [ "$TEST_TYPE" = unit ]; then
-    detail "unit | skipped for ${TOOL}"
-    exit 0
-fi
 
-normalize_text() {
-    tr '[:upper:]' '[:lower:]' \
-        | tr -cs "[:alnum:]'" ' ' \
-        | awk '{$1=$1; print}'
-}
 
-keywords_present() {
-    local got=$1 expected=$2 word
-    got=$(printf '%s' "$got" | normalize_text)
-    for word in $expected; do
-        case " $got " in
-            *" $word "*) ;;
-            *) return 1 ;;
-        esac
-    done
-}
 
 run_cli() {
     local label=$1 model=$2 backend=$3 expected=$4
@@ -49,9 +30,11 @@ run_cli() {
     esac
 
     detail "run | ${label} (${backend:-auto}, threads=${THREADS})"
+    describe_test "transcribe jfk.wav (${label}, ${backend:-auto})" "transcript contains: ${expected}"
     local out_log err_log rc=0
     out_log=$(_mktmp)
     err_log=$(_mktmp)
+    echo_cmd "$CRISPASR_CLI" "${args[@]}"
     "$CRISPASR_CLI" "${args[@]}" >"$out_log" 2>"$err_log" </dev/null || rc=$?
     if [ "$rc" -ne 0 ]; then
         [ ! -s "$err_log" ] || cat "$err_log" >&2
@@ -101,6 +84,13 @@ run_crispasr() {
 if [ "$TEST_TYPE" = performance ]; then
     detail "performance | skipped for ${TOOL} (no stable parser yet)"
     exit 0
-else
+elif [ "$TEST_TYPE" = integration ]; then
     run_crispasr "$@"
+elif [ "$TEST_TYPE" = build ]; then
+    run_crispasr "$@"
+elif [ "$TEST_TYPE" = unit ]; then
+    harness_preamble "$TOOL" "$MODEL_TIER" "$RUN_BUILD"
+    detail "unit | ${TOOL} compiled successfully (no unit tests configured)"
+else
+    detail "${TEST_TYPE} | skipped for ${TOOL}"
 fi

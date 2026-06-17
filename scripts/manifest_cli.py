@@ -9,7 +9,8 @@ Usage:
     manifest_cli.py get <dotted.key>        # scalar/JSON value at a dotted key path
     manifest_cli.py repo-field <repo> <fld> # one field of repos.<repo> (bool -> 1/0)
     manifest_cli.py tool-field <tool> <fld> # one field of tools.<tool> (list -> joined)
-    manifest_cli.py models <tool> <tier>    # tab-separated model rows (smoke|full)
+    manifest_cli.py hf-files <tool> <tier>       # tab-separated repo/pattern rows
+    manifest_cli.py model-encoders <tool> <tier> <name>  # tab-separated flag/repo/file
     manifest_cli.py upstream-ref <repo>     # current upstream_ref for a repo
     manifest_cli.py affected-tools --base-ref REF [pipeline]  # affected tools
 
@@ -26,6 +27,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+WHISPER_HF_REPO = "ggerganov/whisper.cpp"
 
 
 def manifest_path() -> Path:
@@ -88,15 +91,41 @@ def tools_for_pipeline(data: dict, pipeline: str) -> list[str]:
     return [name for name, tool in data["tools"].items() if pipeline in tool.get("pipelines", [])]
 
 
+MODEL_FIELDS: dict[str, list[str]] = {
+    "llama-cpp": ["name", "repo", "file", "samplers", "ctx", "n_predict", "prompt", "expect"],
+    "whisper-cpp": ["name", "id", "expected"],
+    "stable-diffusion-cpp": [
+        "name",
+        "family",
+        "repo",
+        "file_tpl",
+        "steps",
+        "cfg",
+        "neg",
+        "prompt",
+        "width",
+        "height",
+        "min_bytes",
+    ],
+    "parakeet-cpp": ["name", "repo", "file", "decoder", "expected"],
+    "crispasr": ["name", "repo", "file", "expected", "backend"],
+    "acestep-cpp": ["name", "repo", "lm", "enc", "dit", "vae", "caption", "steps", "duration"],
+    "omnivoice-cpp": ["name", "repo", "model_file", "codec_file", "lang", "text"],
+}
+
+
 def _arch_tool_include(data: dict, tools: list[str], respect_exclusions: bool = True) -> list[dict]:
-    """Build [{tool, arch, runs-on}, ...] for the given tool list."""
+    """Build [{tool, arch, runs-on, type}, ...] for the given tool list."""
     include = []
     for t in tools:
-        excluded = set(data.get("tools", {}).get(t, {}).get("exclude_archs", []))
+        exclude_test = set(data.get("tools", {}).get(t, {}).get("exclude_test_archs", []))
         for a in data["ci"]["architectures"]:
-            if respect_exclusions and a["arch"] in excluded:
-                continue
-            include.append({"tool": t, "arch": a["arch"], "runs-on": a["runs_on"]})
+            arch = a["arch"]
+            runs_on = a["runs_on"]
+            if respect_exclusions and arch in exclude_test:
+                include.append({"tool": t, "arch": arch, "runs-on": runs_on, "type": "unit"})
+            else:
+                include.append({"tool": t, "arch": arch, "runs-on": runs_on, "type": "build"})
     return include
 
 
@@ -119,6 +148,18 @@ def matrix_release_for_tools(data: dict, tools: list[str]) -> dict:
     release_tools = set(tools_for_pipeline(data, "release"))
     selected = [tool for tool in tools if tool in release_tools]
     return {"include": _arch_tool_include(data, selected, False)}
+
+
+def matrix_prefetch(data: dict, pipeline: str) -> dict:
+    """Arch-independent tool list for HF cache pre-population."""
+    tools = [t for t in tools_for_pipeline(data, pipeline) if t in MODEL_FIELDS]
+    return {"include": [{"tool": t} for t in tools]}
+
+
+def matrix_prefetch_for_tools(data: dict, tools: list[str], pipeline: str) -> dict:
+    pipeline_tools = set(tools_for_pipeline(data, pipeline))
+    selected = [tool for tool in tools if tool in pipeline_tools and tool in MODEL_FIELDS]
+    return {"include": [{"tool": t} for t in selected]}
 
 
 def brew_deps(data: dict, pipeline: str) -> list[str]:
@@ -226,15 +267,6 @@ def fmt_scalar(val) -> str:
     return str(val)
 
 
-MODEL_FIELDS: dict[str, list[str]] = {
-    "llama-cpp": ["name", "repo", "file", "preset", "samplers"],
-    "whisper-cpp": ["name", "id"],
-    "stable-diffusion-cpp": ["name", "family", "repo", "file_tpl", "steps", "cfg", "neg"],
-    "parakeet-cpp": ["name", "repo", "file", "decoder", "expected"],
-    "crispasr": ["name", "repo", "file", "expected", "backend"],
-}
-
-
 def model_row(tool: str, entry: dict) -> str:
     fields = MODEL_FIELDS[tool]
     parts = []
@@ -262,6 +294,98 @@ def emit_models(data: dict, tool: str, tier: str) -> None:
         print(model_row(tool, entry))
 
 
+def resolve_quant_tokens(tier: str, tpl: str) -> str:
+    """Expand {quant} and {llm_quant} placeholders (mirrors validate script defaults)."""
+    quant = os.environ.get("QUANT", "Q8_0")
+    llm_quant = os.environ.get("LLM_QUANT", "Q4_0" if tier == "smoke" else "Q8_0")
+    return tpl.replace("{quant}", quant).replace("{llm_quant}", llm_quant)
+
+
+def _hf_pairs_for_entry(tool: str, tier: str, entry: dict) -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    if tool == "whisper-cpp":
+        model_id = entry["id"]
+        pairs.append((WHISPER_HF_REPO, f"ggml-{model_id}.bin"))
+    elif tool in ("llama-cpp", "parakeet-cpp", "crispasr"):
+        pairs.append((entry["repo"], entry["file"]))
+    elif tool == "acestep-cpp":
+        repo = entry["repo"]
+        for key in ("lm", "enc", "dit", "vae"):
+            pairs.append((repo, entry[key]))
+    elif tool == "omnivoice-cpp":
+        repo = entry["repo"]
+        pairs.append((repo, entry["model_file"]))
+        pairs.append((repo, entry["codec_file"]))
+    elif tool == "stable-diffusion-cpp":
+        repo = entry["repo"]
+        pairs.append((repo, resolve_quant_tokens(tier, entry["file_tpl"])))
+        for enc in entry.get("encoders", []):
+            enc_repo = enc.get("repo", repo)
+            pairs.append((enc_repo, resolve_quant_tokens(tier, enc["file"])))
+    else:
+        sys.exit(f"tool '{tool}' has no hf_files mapping in manifest_cli.py")
+    return pairs
+
+
+def _dedupe_pairs(pairs: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    seen: set[tuple[str, str]] = set()
+    out: list[tuple[str, str]] = []
+    for repo, pattern in pairs:
+        key = (repo, pattern)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(key)
+    return out
+
+
+def hf_files(data: dict, tool: str, tier: str) -> list[tuple[str, str]]:
+    if tool not in data["tools"]:
+        sys.exit(f"unknown tool: {tool}")
+    if tier not in ("smoke", "full"):
+        sys.exit(f"unknown tier: {tier} (expected smoke|full)")
+    if tool not in MODEL_FIELDS:
+        return []
+    pairs: list[tuple[str, str]] = []
+    for entry in data["tools"][tool].get("models", {}).get(tier, []):
+        pairs.extend(_hf_pairs_for_entry(tool, tier, entry))
+    return _dedupe_pairs(pairs)
+
+
+def model_encoders(data: dict, tool: str, tier: str, model_name: str) -> list[tuple[str, str, str]]:
+    if tool not in data["tools"]:
+        sys.exit(f"unknown tool: {tool}")
+    if tier not in ("smoke", "full"):
+        sys.exit(f"unknown tier: {tier} (expected smoke|full)")
+    for entry in data["tools"][tool].get("models", {}).get(tier, []):
+        if entry.get("name") != model_name:
+            continue
+        repo = entry["repo"]
+        rows: list[tuple[str, str, str]] = []
+        for enc in entry.get("encoders", []):
+            flag = enc["flag"]
+            enc_repo = enc.get("repo", repo)
+            enc_file = resolve_quant_tokens(tier, enc["file"])
+            rows.append((flag, enc_repo, enc_file))
+        return rows
+    return []
+
+
+def emit_hf_files(data: dict, tool: str, tier: str) -> None:
+    for repo, pattern in hf_files(data, tool, tier):
+        if "\t" in repo or "\t" in pattern:
+            sys.exit(f"HF file field contains TAB in tool '{tool}': {repo!r} / {pattern!r}")
+        print(f"{repo}\t{pattern}")
+
+
+def emit_model_encoders(data: dict, tool: str, tier: str, model_name: str) -> None:
+    for flag, repo, enc_file in model_encoders(data, tool, tier, model_name):
+        for val in (flag, repo, enc_file):
+            if "\t" in val:
+                sys.exit(f"encoder field contains TAB in tool '{tool}': {val!r}")
+        print(f"{flag}\t{repo}\t{enc_file}")
+
+
 def main() -> None:
     data = load()
     argv = sys.argv[1:]
@@ -274,7 +398,7 @@ def main() -> None:
         if len(argv) < 2:
             sys.exit(
                 "usage: manifest_cli.py matrix "
-                "<unit|build|integration|performance|release> [--affected --base-ref REF]"
+                "<unit|build|integration|performance|release|prefetch> [--affected --base-ref REF]"
             )
         pipeline = argv[1]
         affected = "--affected" in argv[2:]
@@ -290,11 +414,15 @@ def main() -> None:
             tools = affected_tools(data, base_ref, pipeline)
             if pipeline == "release":
                 obj = matrix_release_for_tools(data, tools)
+            elif pipeline == "prefetch":
+                obj = matrix_prefetch_for_tools(data, tools, "build")
             else:
                 obj = matrix_arch_tool_for_tools(data, tools, pipeline)
         else:
             if pipeline == "release":
                 obj = matrix_release(data)
+            elif pipeline == "prefetch":
+                obj = matrix_prefetch(data, "build")
             else:
                 obj = matrix_arch_tool(data, pipeline)
         print(json.dumps(obj, separators=(",", ":")))
@@ -336,6 +464,16 @@ def main() -> None:
         if len(argv) < 3:
             sys.exit("usage: manifest_cli.py models <tool> <smoke|full>")
         emit_models(data, argv[1], argv[2])
+
+    elif cmd == "hf-files":
+        if len(argv) < 3:
+            sys.exit("usage: manifest_cli.py hf-files <tool> <smoke|full>")
+        emit_hf_files(data, argv[1], argv[2])
+
+    elif cmd == "model-encoders":
+        if len(argv) < 4:
+            sys.exit("usage: manifest_cli.py model-encoders <tool> <smoke|full> <model_name>")
+        emit_model_encoders(data, argv[1], argv[2], argv[3])
 
     elif cmd == "upstream-ref":
         if len(argv) < 2:

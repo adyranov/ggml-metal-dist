@@ -20,25 +20,22 @@
     },
     "llama-cpp": {
       "upstream_url": "https://github.com/ggml-org/llama.cpp.git",
-      "upstream_ref": "b9637"
+      "upstream_ref": "b9660"
     },
     "whisper-cpp": {
       "upstream_url": "https://github.com/ggml-org/whisper.cpp.git",
-      "upstream_ref": "v1.8.6",
-      "patches": [
-        "patches/whisper-cpp/0001-gated-delta-net-api.patch"
-      ]
+      "upstream_ref": "v1.9.0"
     },
     "stable-diffusion-cpp": {
       "upstream_url": "https://github.com/leejet/stable-diffusion.cpp.git",
-      "upstream_ref": "master-703-bb90bfa",
+      "upstream_ref": "master-707-5a34bc7",
       "patches": [
         "patches/stable-diffusion-cpp/0001-gate-server-example-build.patch"
       ]
     },
     "parakeet-cpp": {
       "upstream_url": "https://github.com/mudler/parakeet.cpp.git",
-      "upstream_ref": "v0.2.0",
+      "upstream_ref": "v0.3.2",
       "ggml_path": "third_party/ggml"
     },
     "crispasr": {
@@ -47,6 +44,20 @@
       "patches": [
         "patches/crispasr/0001-injected-ggml-api-compat.patch",
         "patches/crispasr/0002-indextts-aa-native.patch"
+      ]
+    },
+    "acestep-cpp": {
+      "upstream_url": "https://github.com/ServeurpersoCom/acestep.cpp.git",
+      "upstream_ref": "4922ed10a925a11b479c0b2a281f954810b9a7e9",
+      "patches": [
+        "patches/acestep-cpp/0001-cmake-runtime-output-bin.patch"
+      ]
+    },
+    "omnivoice-cpp": {
+      "upstream_url": "https://github.com/ServeurpersoCom/omnivoice.cpp.git",
+      "upstream_ref": "2603355a5dfacae5cfc33531d5d0933221843509",
+      "patches": [
+        "patches/omnivoice-cpp/0001-cmake-runtime-output-bin.patch"
       ]
     }
   },
@@ -63,9 +74,6 @@
         "-DGGML_METAL_EMBED_LIBRARY=ON",
         "-DBUILD_SHARED_LIBS=OFF"
       ],
-      "build_targets": [
-        "test-backend-ops"
-      ],
       "install_targets": [
         "test-backend-ops"
       ],
@@ -77,6 +85,7 @@
     "llama-cpp": {
       "repo": "llama-cpp",
       "pipelines": [
+        "unit",
         "build",
         "integration",
         "performance",
@@ -89,7 +98,7 @@
         "-DBUILD_SHARED_LIBS=OFF",
         "-DLLAMA_USE_SYSTEM_GGML=OFF",
         "-DLLAMA_OPENSSL=ON",
-        "-DLLAMA_BUILD_TESTS=ON",
+        "-DLLAMA_BUILD_TESTS=OFF",
         "-DLLAMA_TESTS_INSTALL=OFF",
         "-DLLAMA_BUILD_EXAMPLES=OFF",
         "-DLLAMA_BUILD_TOOLS=ON",
@@ -97,28 +106,6 @@
         "-DLLAMA_BUILD_APP=ON",
         "-DLLAMA_BUILD_UI=OFF",
         "-DLLAMA_TOOLS_INSTALL=ON"
-      ],
-      "build_targets": [
-        "llama-app",
-        "llama-cli",
-        "llama-completion",
-        "llama-server",
-        "llama-bench",
-        "llama-quantize",
-        "llama-gguf-split",
-        "llama-mtmd-cli",
-        "llama-imatrix",
-        "llama-perplexity",
-        "llama-tokenize",
-        "llama-tts",
-        "llama-export-lora",
-        "llama-cvector-generator",
-        "llama-batched-bench",
-        "llama-fit-params",
-        "llama-results",
-        "llama-debug-template-parser",
-        "llama-template-analysis",
-        "test-backend-ops"
       ],
       "install_targets": [
         "install"
@@ -153,8 +140,11 @@
             "name": "Qwen3-0.6B",
             "repo": "unsloth/Qwen3-0.6B-GGUF",
             "file": "Qwen3-0.6B-Q4_K_M.gguf",
-            "preset": "smoke",
-            "samplers": "--reasoning off --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0"
+            "samplers": "--reasoning off --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0",
+            "ctx": 512,
+            "n_predict": 64,
+            "prompt": "Hi! In one short sentence, what is the capital of France?",
+            "expect": "paris"
           }
         ],
         "full": [
@@ -162,29 +152,41 @@
             "name": "Qwen3-0.6B",
             "repo": "unsloth/Qwen3-0.6B-GGUF",
             "file": "*[Qq]8_0*.gguf",
-            "preset": "smoke",
-            "samplers": "--reasoning off --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0"
+            "samplers": "--reasoning off --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0",
+            "ctx": 4096,
+            "n_predict": 64,
+            "prompt": "Hi! In one short sentence, what is the capital of France?",
+            "expect": "paris"
           },
           {
             "name": "Qwen3.5-9B",
             "repo": "unsloth/Qwen3.5-9B-GGUF",
             "file": "Qwen3.5-9B-UD-Q6_K_XL.gguf",
-            "preset": "code",
-            "samplers": "--reasoning off --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0"
+            "samplers": "--reasoning off --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0",
+            "ctx": 4096,
+            "n_predict": 256,
+            "prompt": "Write a Python function nth_fibonacci(n) using memoization.",
+            "expect": ""
           },
           {
             "name": "Gemma-4-12B-it",
             "repo": "unsloth/gemma-4-12b-it-GGUF",
             "file": "gemma-4-12b-it-UD-Q4_K_XL.gguf",
-            "preset": "reason",
-            "samplers": "--temp 1.0 --top-p 0.95 --top-k 64 --min-p 0"
+            "samplers": "--temp 1.0 --top-p 0.95 --top-k 64 --min-p 0",
+            "ctx": 4096,
+            "n_predict": 200,
+            "prompt": "Explain step by step why the sky appears blue. Keep it under 150 words.",
+            "expect": ""
           },
           {
             "name": "DeepSeek-Coder-V2-Lite-Instruct",
             "repo": "bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF",
             "file": "*[Qq]4_[Kk]_[Mm]*.gguf",
-            "preset": "long",
-            "samplers": "--temp 0.6 --top-p 0.95 --min-p 0"
+            "samplers": "--temp 0.6 --top-p 0.95 --min-p 0",
+            "ctx": 4096,
+            "n_predict": 320,
+            "prompt": "List three trade-offs between consistency and availability in a distributed store.",
+            "expect": ""
           }
         ]
       }
@@ -192,6 +194,7 @@
     "whisper-cpp": {
       "repo": "whisper-cpp",
       "pipelines": [
+        "unit",
         "build",
         "integration",
         "performance",
@@ -207,17 +210,6 @@
         "-DWHISPER_BUILD_EXAMPLES=ON",
         "-DWHISPER_BUILD_TESTS=OFF"
       ],
-      "build_targets": [
-        "whisper-cli",
-        "whisper-bench",
-        "whisper-server",
-        "whisper-command",
-        "whisper-stream",
-        "whisper-talk-llama",
-        "whisper-lsp",
-        "whisper-vad-speech-segments",
-        "whisper-quantize"
-      ],
       "install_targets": [
         "install"
       ],
@@ -230,7 +222,9 @@
         "whisper-talk-llama",
         "whisper-lsp",
         "whisper-vad-speech-segments",
-        "whisper-quantize"
+        "whisper-quantize",
+        "parakeet-cli",
+        "parakeet-quantize"
       ],
       "depends_on": [
         "sdl2"
@@ -239,21 +233,25 @@
         "smoke": [
           {
             "name": "tiny.en",
-            "id": "tiny.en"
+            "id": "tiny.en",
+            "expected": "country fellow americans"
           }
         ],
         "full": [
           {
             "name": "base.en",
-            "id": "base.en"
+            "id": "base.en",
+            "expected": "country fellow americans"
           },
           {
             "name": "small.en",
-            "id": "small.en"
+            "id": "small.en",
+            "expected": "country fellow americans"
           },
           {
             "name": "large-v3-turbo",
-            "id": "large-v3-turbo"
+            "id": "large-v3-turbo",
+            "expected": "country fellow americans"
           }
         ]
       }
@@ -261,12 +259,13 @@
     "stable-diffusion-cpp": {
       "repo": "stable-diffusion-cpp",
       "pipelines": [
+        "unit",
         "build",
         "integration",
         "performance",
         "release"
       ],
-      "exclude_archs": [
+      "exclude_test_archs": [
         "x86_64"
       ],
       "cmake_flags": [
@@ -278,9 +277,6 @@
         "-DSD_BUILD_SHARED_GGML_LIB=OFF",
         "-DSD_BUILD_SERVER=OFF",
         "-DSD_USE_SYSTEM_GGML=OFF"
-      ],
-      "build_targets": [
-        "sd-cli"
       ],
       "install_targets": [
         "install"
@@ -298,7 +294,11 @@
             "file_tpl": "sdxs-512-tinySDdistilled_Q8_0.gguf",
             "steps": 1,
             "cfg": 1.0,
-            "neg": false
+            "neg": false,
+            "prompt": "a cat",
+            "width": 512,
+            "height": 512,
+            "min_bytes": 5000
           }
         ],
         "full": [
@@ -309,7 +309,23 @@
             "file_tpl": "z_image_turbo-{quant}.gguf",
             "steps": 8,
             "cfg": 1.0,
-            "neg": false
+            "neg": false,
+            "prompt": "A cinematic photograph of an astronaut in a neon Tokyo ramen bar at night.",
+            "width": 1024,
+            "height": 1024,
+            "min_bytes": 10000,
+            "encoders": [
+              {
+                "flag": "vae",
+                "repo": "Comfy-Org/z_image_turbo",
+                "file": "split_files/vae/*.safetensors"
+              },
+              {
+                "flag": "llm",
+                "repo": "unsloth/Qwen3-4B-Instruct-2507-GGUF",
+                "file": "Qwen3-4B-Instruct-2507-{llm_quant}.gguf"
+              }
+            ]
           },
           {
             "name": "flux1-schnell",
@@ -318,7 +334,25 @@
             "file_tpl": "flux1-schnell-{quant}.gguf",
             "steps": 4,
             "cfg": 1.0,
-            "neg": false
+            "neg": false,
+            "prompt": "A cinematic photograph of an astronaut in a neon Tokyo ramen bar at night.",
+            "width": 1024,
+            "height": 1024,
+            "min_bytes": 10000,
+            "encoders": [
+              {
+                "flag": "vae",
+                "file": "ae.safetensors"
+              },
+              {
+                "flag": "clip_l",
+                "file": "clip_l.safetensors"
+              },
+              {
+                "flag": "t5xxl",
+                "file": "t5xxl-Q8_0.gguf"
+              }
+            ]
           }
         ]
       }
@@ -326,6 +360,7 @@
     "parakeet-cpp": {
       "repo": "parakeet-cpp",
       "pipelines": [
+        "unit",
         "build",
         "integration",
         "release"
@@ -339,9 +374,6 @@
         "-DPARAKEET_BUILD_CLI=ON",
         "-DPARAKEET_BUILD_TESTS=OFF",
         "-DPARAKEET_SHARED=OFF"
-      ],
-      "build_targets": [
-        "parakeet-cli"
       ],
       "install_targets": [
         "parakeet-cli"
@@ -374,6 +406,7 @@
     "crispasr": {
       "repo": "crispasr",
       "pipelines": [
+        "unit",
         "build",
         "integration",
         "release"
@@ -389,10 +422,6 @@
         "-DCRISPASR_BUILD_SERVER=OFF",
         "-DCRISPASR_SDL2=OFF",
         "-DCRISPASR_CURL=OFF"
-      ],
-      "build_targets": [
-        "crispasr-cli",
-        "crispasr-quantize"
       ],
       "install_targets": [
         "crispasr",
@@ -448,6 +477,122 @@
             "repo": "cstr/qwen3-asr-0.6b-GGUF",
             "file": "qwen3-asr-0.6b-q4_k.gguf",
             "expected": "country fellow americans"
+          }
+        ]
+      }
+    },
+    "acestep-cpp": {
+      "repo": "acestep-cpp",
+      "pipelines": [
+        "unit",
+        "build",
+        "integration",
+        "release"
+      ],
+      "exclude_test_archs": [
+        "arm64",
+        "x86_64"
+      ],
+      "cmake_flags": [
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DGGML_METAL=ON",
+        "-DGGML_METAL_EMBED_LIBRARY=ON",
+        "-DBUILD_SHARED_LIBS=OFF"
+      ],
+      "install_targets": [
+        "ace-synth",
+        "ace-lm",
+        "ace-server",
+        "ace-understand",
+        "neural-codec",
+        "mp3-codec",
+        "quantize"
+      ],
+      "binaries": [
+        "ace-synth",
+        "ace-lm",
+        "ace-server",
+        "ace-understand",
+        "neural-codec",
+        "mp3-codec",
+        "quantize"
+      ],
+      "depends_on": [],
+      "models": {
+        "smoke": [
+          {
+            "name": "acestep-turbo-0.6B",
+            "repo": "Serveurperso/ACE-Step-1.5-GGUF",
+            "lm": "acestep-5Hz-lm-0.6B-Q8_0.gguf",
+            "enc": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+            "dit": "acestep-v15-turbo-Q4_K_M.gguf",
+            "vae": "vae-BF16.gguf",
+            "caption": "Upbeat acoustic folk song with gentle guitar and warm vocals",
+            "steps": 8,
+            "duration": 5.0
+          }
+        ],
+        "full": [
+          {
+            "name": "acestep-turbo-4B",
+            "repo": "Serveurperso/ACE-Step-1.5-GGUF",
+            "lm": "acestep-5Hz-lm-4B-Q8_0.gguf",
+            "enc": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+            "dit": "acestep-v15-turbo-Q8_0.gguf",
+            "vae": "vae-BF16.gguf",
+            "caption": "Upbeat pop rock anthem with driving electric guitars and punchy drums",
+            "steps": 8,
+            "duration": 60.0
+          }
+        ]
+      }
+    },
+    "omnivoice-cpp": {
+      "repo": "omnivoice-cpp",
+      "pipelines": [
+        "unit",
+        "build",
+        "integration",
+        "release"
+      ],
+      "cmake_flags": [
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DGGML_METAL=ON",
+        "-DGGML_METAL_EMBED_LIBRARY=ON",
+        "-DBUILD_SHARED_LIBS=OFF"
+      ],
+      "install_targets": [
+        "omnivoice-tts",
+        "omnivoice-codec",
+        "tts-server",
+        "quantize"
+      ],
+      "binaries": [
+        "omnivoice-tts",
+        "omnivoice-codec",
+        "tts-server",
+        "quantize"
+      ],
+      "depends_on": [],
+      "models": {
+        "smoke": [
+          {
+            "name": "omnivoice-base-Q8_0",
+            "repo": "Serveurperso/OmniVoice-GGUF",
+            "model_file": "omnivoice-base-Q8_0.gguf",
+            "codec_file": "omnivoice-tokenizer-Q8_0.gguf",
+            "lang": "English",
+            "text": "Hello world, this is a test of local text to speech."
+          }
+        ],
+        "full": [
+          {
+            "name": "omnivoice-base-F32-codec",
+            "repo": "Serveurperso/OmniVoice-GGUF",
+            "model_file": "omnivoice-base-Q8_0.gguf",
+            "codec_file": "omnivoice-tokenizer-F32.gguf",
+            "lang": "English",
+            "text": "Hello world, this is a test of local text to speech."
           }
         ]
       }

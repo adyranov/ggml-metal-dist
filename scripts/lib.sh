@@ -122,15 +122,20 @@ _verbose_cmd_label() {
     printf '%s' "${cmd% }"
 }
 
-verbose_cmd_open() {
-    [ "$HARNESS_VERBOSE" = 1 ] || return 0
+# Always print the exact command (stderr). Opt out with NO_CMD_ECHO=1.
+echo_cmd() {
+    [ "${NO_CMD_ECHO:-0}" = 1 ] && return 0
     local cmd
     cmd=$(_verbose_cmd_label "$@")
     if [ "$USE_VISUAL" = 1 ]; then
-        printf '%s▶ %s%s\n' "$C_DIM" "$cmd" "$C_RESET" >&2
+        printf '%s$ %s%s\n' "$C_DIM" "$cmd" "$C_RESET" >&2
     else
         printf '$ %s\n' "$cmd" >&2
     fi
+}
+
+verbose_cmd_open() {
+    echo_cmd "$@"
 }
 
 verbose_cmd_close() {
@@ -145,7 +150,7 @@ _verbose_replay_log() {
 # cmake/make do not inherit harness verbose mode.
 verbose_cmd() {
     local rc=0
-    verbose_cmd_open "$@"
+    echo_cmd "$@"
     env -u VERBOSE "$@" >&2
     rc=$?
     return "$rc"
@@ -153,8 +158,9 @@ verbose_cmd() {
 
 # Run a sub-command quietly unless --verbose; on failure, replay captured output.
 run_q() {
+    echo_cmd "$@"
     if [ "$HARNESS_VERBOSE" = 1 ]; then
-        verbose_cmd "$@"
+        env -u VERBOSE "$@" >&2
         return "$?"
     fi
     local log rc=0
@@ -173,9 +179,7 @@ RUN_OUTPUT=""
 run_capture() {
     local log rc=0
     log=$(_mktmp)
-    if [ "$HARNESS_VERBOSE" = 1 ]; then
-        verbose_cmd_open "$@"
-    fi
+    echo_cmd "$@"
     env -u VERBOSE "$@" >"$log" 2>&1 || rc=$?
     RUN_OUTPUT=$(cat "$log")
     if [ "$HARNESS_VERBOSE" = 1 ]; then
@@ -185,6 +189,18 @@ run_capture() {
         _verbose_replay_log "$log"
     fi
     return "$rc"
+}
+
+# Describe a test before it runs: what is exercised and the pass criterion.
+describe_test() {
+    local what=$1 expect=${2:-}
+    if [ "$USE_VISUAL" = 1 ]; then
+        printf '%s  test:   %s%s\n' "$C_CYAN" "$what" "$C_RESET" >&2
+        [ -z "$expect" ] || printf '%s  expect: %s%s\n' "$C_DIM" "$expect" "$C_RESET" >&2
+    else
+        printf '  test:   %s\n' "$what" >&2
+        [ -z "$expect" ] || printf '  expect: %s\n' "$expect" >&2
+    fi
 }
 
 PASS=0
@@ -355,6 +371,66 @@ harness_file_size() {
     du -h "$f" | awk '{print $1}'
 }
 
+# Always print a labeled file body to stderr (request/config dumps).
+show_file() {
+    local label=$1 file=$2
+    [ -f "$file" ] || return 1
+    if [ "$USE_COLOR" = 1 ]; then
+        printf '%s  %s:%s\n' "$C_CYAN" "$label" "$C_RESET" >&2
+    else
+        printf '  %s:\n' "$label" >&2
+    fi
+    sed 's/^/    /' "$file" >&2
+}
+
+# Run mediacheck.py <kind> <file> [extra args...]; pass/fail with diagnostics.
+_assert_media() {
+    local label=$1 kind=$2 f=$3
+    shift 3
+    local out rc=0
+    [ -f "$f" ] || {
+        printf '  %s | missing %s\n' "$label" "$f" >&2
+        return 1
+    }
+    echo_cmd python3 "$DIST_ROOT/scripts/mediacheck.py" "$kind" "$f" "$@"
+    out=$(python3 "$DIST_ROOT/scripts/mediacheck.py" "$kind" "$f" "$@" 2>&1) || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        detail "$label | ok $(basename "$f") (${out//$'\n'/ })"
+        return 0
+    fi
+    printf '  %s | %s\n' "$label" "$out" >&2
+    return 1
+}
+
+assert_png() {
+    local f=$1 w=$2 h=$3 min=${4:-1}
+    _assert_media image png "$f" --width "$w" --height "$h" --min-bytes "$min"
+}
+
+assert_wav() {
+    local f=$1 min_dur=${2:-0.1} rate=${3:-}
+    local extra=()
+    [ -z "$rate" ] || extra=(--rate "$rate")
+    _assert_media audio wav "$f" --min-duration "$min_dur" --min-bytes 16000 ${extra[@]+"${extra[@]}"}
+}
+
+normalize_text() {
+    tr '[:upper:]' '[:lower:]' \
+        | tr -cs "[:alnum:]'" ' ' \
+        | awk '{$1=$1; print}'
+}
+
+keywords_present() {
+    local got=$1 expected=$2 word
+    got=$(printf '%s' "$got" | normalize_text)
+    for word in $expected; do
+        case " $got " in
+            *" $word "*) ;;
+            *) return 1 ;;
+        esac
+    done
+}
+
 # All manifest reads funnel through scripts/manifest_cli.py (single reader).
 manifest_query() {
     MANIFEST="$MANIFEST" python3 "$DIST_ROOT/scripts/manifest_cli.py" "$@"
@@ -382,6 +458,14 @@ tools_usage() {
 
 manifest_models() {
     manifest_query models "$1" "$2"
+}
+
+manifest_hf_files() {
+    manifest_query hf-files "$1" "$2"
+}
+
+manifest_model_encoders() {
+    manifest_query model-encoders "$1" "$2" "$3"
 }
 
 require_version() {
@@ -791,7 +875,7 @@ work_dir() {
 
 # Stable gitignored checkout dir for validation.
 VALIDATE_WORK=${VALIDATE_WORK:-$DIST_ROOT/scripts/validate/work}
-
+ARTIFACTS_DIR=${ARTIFACTS_DIR:-$VALIDATE_WORK/artifacts}
 tool_work_dir() {
     printf '%s/%s' "$VALIDATE_WORK" "$1"
 }
@@ -923,8 +1007,10 @@ hf_report_env() {
 }
 
 _hf_repo_cache_dir() {
-    local cache=$1 repo=$2
-    printf '%s/models--%s' "$cache" "$(printf '%s' "$repo" | tr '/:' '--')"
+    local cache=$1 repo=$2 repo_name
+    repo_name=${repo//\//--}
+    repo_name=${repo_name//:/--}
+    printf '%s/models--%s' "$cache" "$repo_name"
 }
 
 # Return a cached snapshot path when the file is already present locally.
@@ -992,13 +1078,11 @@ hf_fetch() {
     esac
     detail "hf | downloading ${repo} ← ${pattern} (large files may take several minutes)"
     dl_log=$(_mktmp)
-    if [ "$HARNESS_VERBOSE" = 1 ]; then
-        verbose_cmd_open "${hf_cmd[@]}" "${dl_args[@]}"
-    fi
+    echo_cmd "${hf_cmd[@]}" "${dl_args[@]}"
     # Stream progress to stderr; do not use -q or HF_HUB_DISABLE_PROGRESS_BARS here.
     local rc=0
     if [ "$HARNESS_VERBOSE" = 1 ]; then
-        HF_HUB_DISABLE_PROGRESS_BARS=0 "${hf_cmd[@]}" "${dl_args[@]}" 2>&1 | tee "$dl_log" || true
+        HF_HUB_DISABLE_PROGRESS_BARS=0 "${hf_cmd[@]}" "${dl_args[@]}" 2>&1 | tee "$dl_log" >&2 || true
         rc=${PIPESTATUS[0]}
     else
         HF_HUB_DISABLE_PROGRESS_BARS=0 "${hf_cmd[@]}" "${dl_args[@]}" >"$dl_log" 2>&1 || rc=$?
@@ -1092,8 +1176,13 @@ build_tool() {
         ${ARCH_ARGS[@]+"${ARCH_ARGS[@]}"} \
         ${PREFIX_ARGS[@]+"${PREFIX_ARGS[@]}"} \
         ${CCACHE_ARGS[@]+"${CCACHE_ARGS[@]}"}
-    detail "build | targets: ${BUILD_TARGETS[*]}"
-    run_q cmake --build "$build" -j "$jobs" --target "${BUILD_TARGETS[@]}"
+    if [ ${#BUILD_TARGETS[@]} -gt 0 ]; then
+        detail "build | targets: ${BUILD_TARGETS[*]}"
+        run_q cmake --build "$build" -j "$jobs" --target "${BUILD_TARGETS[@]}"
+    else
+        detail "build | all targets"
+        run_q cmake --build "$build" -j "$jobs"
+    fi
     detail "build | done ${build}/bin"
 }
 

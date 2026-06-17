@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Artem Dyranov <1038141+adyranov@users.noreply.github.com>
+Date: Tue, 16 Jun 2026 00:00:00 -0400
+Subject: [PATCH] build: emit executables into bin/
+
+The dist build links ggml statically (BUILD_SHARED_LIBS=OFF, no backend
+dlopen), so the upstream workaround of keeping executables in the build
+root next to the backend .so files is unnecessary. Emit them into bin/
+to match the dist packaging/validation contract.
+---
+ CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 50cd610..87abf6b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -33,7 +33,7 @@ endif()
+ # Put executables and backend .so in the same directory (build root).
+ # Without this, ggml defaults to bin/ for .so but executables stay in root,
+ # and ggml_backend_load_all() can't find the backends at runtime.
+-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
++set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
+ # Audio tokenizer tensor names can exceed default GGML_MAX_NAME of 64
+--
+2.54.0

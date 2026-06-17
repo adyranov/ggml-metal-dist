@@ -27,79 +27,58 @@ else
     CTX=${CTX:-4096}
 fi
 
-n_for_kind() {
-    case $1 in
-        smoke) echo 64 ;; reason) echo 200 ;; code) echo 256 ;; long) echo 320 ;; *) echo 128 ;;
-    esac
-}
-
-prompt_for_kind() {
-    case $1 in
-        smoke) echo "Hi! In one short sentence, what is the capital of France?" ;;
-        reason) echo "Explain step by step why the sky appears blue. Keep it under 150 words." ;;
-        code) echo "Write a Python function nth_fibonacci(n) using memoization." ;;
-        long) echo "List three trade-offs between consistency and availability in a distributed store." ;;
-        *) echo "Hello, who are you? Answer in one sentence." ;;
-    esac
-}
-
-expect_for_kind() {
-    case $1 in
-        smoke) echo paris ;;
-        *) echo '' ;;
-    esac
-}
-
 run_cli() {
-    local label=$1 gguf=$2 np=$3 prompt=$4 mode=$5 kind=$6
-    shift 6
-    local expect quiet=() common=(--no-warmup)
-    expect=$(expect_for_kind "$kind")
-    [ "$HARNESS_VERBOSE" != 1 ] && quiet=(--log-file /dev/null)
+    local label=$1 gguf=$2 np=$3 prompt=$4 expect=$5 ctx=$6 mode=$7
+    shift 7
+    local common=(--no-warmup)
+    [ "$HARNESS_VERBOSE" != 1 ] && common+=(--log-file /dev/null)
     if [ "$mode" = chat ]; then
-        set -- "$LLAMA_COMPLETION" -m "$gguf" -ngl "$NGL" -c "$CTX" -n "$np" \
-            -fa "$FA" -t "$THREADS" "${quiet[@]}" "${common[@]}" \
+        set -- "$LLAMA_COMPLETION" -m "$gguf" -ngl "$NGL" -c "$ctx" -n "$np" \
+            -fa "$FA" -t "$THREADS" "${common[@]}" \
             --jinja -cnv -st -p "$prompt" "$@"
     else
-        set -- "$LLAMA_COMPLETION" -m "$gguf" -ngl "$NGL" -c "$CTX" -n "$np" \
-            -fa "$FA" -t "$THREADS" "${quiet[@]}" "${common[@]}" \
+        set -- "$LLAMA_COMPLETION" -m "$gguf" -ngl "$NGL" -c "$ctx" -n "$np" \
+            -fa "$FA" -t "$THREADS" "${common[@]}" \
             -no-cnv -p "$prompt" "$@"
     fi
-    detail "run | ${label} (${mode}, n=${np}, ctx=${CTX})"
+    detail "run | ${label} (${mode}, n=${np}, ctx=${ctx})"
+    if [ -n "$expect" ]; then
+        describe_test "${label} ${mode} completion (n=${np}, ctx=${ctx})" "output contains \"${expect}\""
+    else
+        describe_test "${label} ${mode} completion (n=${np}, ctx=${ctx})" "non-empty completion, exit 0"
+    fi
     if ! run_capture "$@" </dev/null; then
         return 1
     fi
     if [ -n "$expect" ]; then
-        printf '%s' "$RUN_OUTPUT" | tr '[:upper:]' '[:lower:]' | grep -q "$expect" || return 1
+        keywords_present "$RUN_OUTPUT" "$expect" || return 1
     fi
     return 0
 }
 
 stage_model() {
-    local label=$1 repo=$2 pat=$3 kind=$4
-    shift 4
+    local label=$1 repo=$2 pat=$3 ctx=$4 np=$5 prompt=$6 expect=$7
+    shift 7
     phase "Model: ${label}"
     detail "model | ${repo}"
     if ! resolve_hf_gguf "$repo" "$pat"; then
         harness_record fail "${label} (download)"
         return 0
     fi
-    local gguf=$GGUF_PATH np prompt
-    np=$(n_for_kind "$kind")
-    prompt=$(prompt_for_kind "$kind")
+    local gguf=$GGUF_PATH
     if [ "$MODEL_TIER" = smoke ]; then
-        if run_cli "$label [chat]" "$gguf" "$np" "$prompt" chat "$kind" "$@"; then
+        if run_cli "$label [chat]" "$gguf" "$np" "$prompt" "$expect" "$ctx" chat "$@"; then
             harness_record pass "${label} [chat]"
         else
             harness_record fail "${label} (chat)"
         fi
-    elif run_cli "$label [raw]" "$gguf" "$np" "$prompt" raw "$kind" "$@"; then
+    elif run_cli "$label [raw]" "$gguf" "$np" "$prompt" "$expect" "$ctx" raw "$@"; then
         harness_record pass "${label} [raw]"
     else
         harness_record fail "${label} (raw)"
     fi
     if [ "$RUN_JINJA" = 1 ] && [ "$MODEL_TIER" = full ]; then
-        if run_cli "$label [chat]" "$gguf" "$np" "$prompt" chat "$kind" "$@"; then
+        if run_cli "$label [chat]" "$gguf" "$np" "$prompt" "$expect" "$ctx" chat "$@"; then
             harness_record pass "${label} [chat]"
         else
             harness_record fail "${label} (chat)"
@@ -130,7 +109,7 @@ bench_llama() {
     bench_preamble "$TOOL" "$RUN_BUILD"
     [ -x "$LLAMA_BENCH" ] || die "llama-bench not found at $LLAMA_BENCH"
 
-    while IFS=$'\t' read -r label repo pat kind samplers; do
+    while IFS=$'\t' read -r label repo pat samplers ctx np prompt expect; do
         [ -n "$label" ] || continue
         [ -z "$TARGET_MODEL" ] || [ "$TARGET_MODEL" = "$label" ] || continue
         phase "Bench: ${label}"
@@ -160,11 +139,11 @@ run_llama() {
     harness_preamble "$TOOL" "$MODEL_TIER" "$RUN_BUILD"
     [ -x "$LLAMA_COMPLETION" ] || die "llama-completion not found at $LLAMA_COMPLETION"
 
-    while IFS=$'\t' read -r label repo pat kind samplers; do
+    while IFS=$'\t' read -r label repo pat samplers ctx np prompt expect; do
         [ -n "$label" ] || continue
         [ -z "$TARGET_MODEL" ] || [ "$TARGET_MODEL" = "$label" ] || continue
         # shellcheck disable=SC2086
-        stage_model "$label" "$repo" "$pat" "$kind" $samplers
+        stage_model "$label" "$repo" "$pat" "$ctx" "$np" "$prompt" "$expect" $samplers
     done < <(manifest_models "$TOOL" "$MODEL_TIER")
 
     harness_summary
@@ -172,8 +151,13 @@ run_llama() {
 
 if [ "$TEST_TYPE" = performance ]; then
     bench_llama "$@"
-elif [ "$TEST_TYPE" = build ] || [ "$TEST_TYPE" = integration ]; then
+elif [ "$TEST_TYPE" = integration ]; then
     run_llama "$@"
+elif [ "$TEST_TYPE" = build ]; then
+    run_llama "$@"
+elif [ "$TEST_TYPE" = unit ]; then
+    harness_preamble "$TOOL" "$MODEL_TIER" "$RUN_BUILD"
+    detail "unit | ${TOOL} compiled successfully (no unit tests configured)"
 else
     detail "${TEST_TYPE} | skipped for ${TOOL}"
     exit 0
