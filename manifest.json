@@ -48,7 +48,7 @@
     },
     "acestep-cpp": {
       "upstream_url": "https://github.com/ServeurpersoCom/acestep.cpp.git",
-      "upstream_ref": "4922ed10a925a11b479c0b2a281f954810b9a7e9",
+      "upstream_ref": "da5bc90f8664c242a7bb42eaa0c778762c02c6e3",
       "patches": [
         "patches/acestep-cpp/0001-cmake-runtime-output-bin.patch"
       ]
