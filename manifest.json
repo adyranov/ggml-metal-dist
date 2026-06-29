@@ -33,11 +33,6 @@
         "patches/stable-diffusion-cpp/0001-gate-server-example-build.patch"
       ]
     },
-    "parakeet-cpp": {
-      "upstream_url": "https://github.com/mudler/parakeet.cpp.git",
-      "upstream_ref": "v0.3.2",
-      "ggml_path": "third_party/ggml"
-    },
     "crispasr": {
       "upstream_url": "https://github.com/CrispStrobe/CrispASR.git",
       "upstream_ref": "v0.8.4",
@@ -86,6 +81,7 @@
       "repo": "llama-cpp",
       "pipelines": [
         "unit",
+        "prefetch",
         "build",
         "integration",
         "performance",
@@ -195,6 +191,7 @@
       "repo": "whisper-cpp",
       "pipelines": [
         "unit",
+        "prefetch",
         "build",
         "integration",
         "performance",
@@ -260,6 +257,7 @@
       "repo": "stable-diffusion-cpp",
       "pipelines": [
         "unit",
+        "prefetch",
         "build",
         "integration",
         "performance",
@@ -357,56 +355,11 @@
         ]
       }
     },
-    "parakeet-cpp": {
-      "repo": "parakeet-cpp",
-      "pipelines": [
-        "unit",
-        "build",
-        "integration",
-        "release"
-      ],
-      "cmake_flags": [
-        "-DCMAKE_BUILD_TYPE=Release",
-        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=bin",
-        "-DBUILD_SHARED_LIBS=OFF",
-        "-DGGML_STATIC=ON",
-        "-DPARAKEET_GGML_METAL=ON",
-        "-DPARAKEET_BUILD_CLI=ON",
-        "-DPARAKEET_BUILD_TESTS=OFF",
-        "-DPARAKEET_SHARED=OFF"
-      ],
-      "install_targets": [
-        "parakeet-cli"
-      ],
-      "binaries": [
-        "parakeet-cli"
-      ],
-      "depends_on": [],
-      "models": {
-        "smoke": [
-          {
-            "name": "tdt_ctc-110m-q4_k",
-            "repo": "mudler/parakeet-cpp-gguf",
-            "file": "tdt_ctc-110m-q4_k.gguf",
-            "decoder": "tdt",
-            "expected": "well i don't wish to see it any more observed phoebe turning away her eyes it is certainly very like the old portrait"
-          }
-        ],
-        "full": [
-          {
-            "name": "tdt_ctc-1.1b-q8_0",
-            "repo": "mudler/parakeet-cpp-gguf",
-            "file": "tdt_ctc-1.1b-q8_0.gguf",
-            "decoder": "tdt",
-            "expected": "well i don't wish to see it any more observed phoebe turning away her eyes it is certainly very like the old portrait"
-          }
-        ]
-      }
-    },
     "crispasr": {
       "repo": "crispasr",
       "pipelines": [
         "unit",
+        "prefetch",
         "build",
         "integration",
         "release"
@@ -485,6 +438,7 @@
       "repo": "acestep-cpp",
       "pipelines": [
         "unit",
+        "prefetch",
         "build",
         "integration",
         "release"
@@ -551,6 +505,7 @@
       "repo": "omnivoice-cpp",
       "pipelines": [
         "unit",
+        "prefetch",
         "build",
         "integration",
         "release"

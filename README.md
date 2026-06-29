@@ -16,7 +16,7 @@ This repo orchestrates Metal builds of these upstream projects (each pinned by `
 | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)                       | LLM inference (`llama-cpp`)                            |
 | [ggml-org/whisper.cpp](https://github.com/ggml-org/whisper.cpp)                   | Speech-to-text / ASR (`whisper-cpp`)                  |
 | [leejet/stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp)     | Image generation (`stable-diffusion-cpp`)             |
-| [mudler/parakeet.cpp](https://github.com/mudler/parakeet.cpp)                     | Parakeet ASR (`parakeet-cpp`)                         |
+
 | [CrispStrobe/CrispASR](https://github.com/CrispStrobe/CrispASR)                   | Unified multi-backend ASR CLI (`crispasr`)            |
 | [ServeurpersoCom/acestep.cpp](https://github.com/ServeurpersoCom/acestep.cpp)     | Music generation (`acestep-cpp`)                      |
 | [ServeurpersoCom/omnivoice.cpp](https://github.com/ServeurpersoCom/omnivoice.cpp) | Text-to-speech / voice cloning (`omnivoice-cpp`)      |
@@ -32,13 +32,13 @@ brew tap adyranov/tap
 brew install adyranov/tap/llama-cpp          # llama.cpp
 brew install adyranov/tap/whisper-cpp        # whisper.cpp (needs sdl2)
 brew install adyranov/tap/stable-diffusion-cpp   # stable-diffusion.cpp
-brew install adyranov/tap/parakeet-cpp       # parakeet.cpp
+
 brew install adyranov/tap/crispasr           # CrispASR
 brew install adyranov/tap/acestep-cpp        # acestep.cpp (music generation)
 brew install adyranov/tap/omnivoice-cpp      # omnivoice.cpp (TTS / voice cloning)
 ```
 
-Per-tool details: [llama-cpp](docs/llama-cpp.md) · [whisper-cpp](docs/whisper-cpp.md) · [stable-diffusion-cpp](docs/stable-diffusion-cpp.md) · [parakeet-cpp](docs/parakeet-cpp.md) · [crispasr](docs/crispasr.md) · [acestep-cpp](docs/acestep-cpp.md) · [omnivoice-cpp](docs/omnivoice-cpp.md).
+Per-tool details: [llama-cpp](docs/llama-cpp.md) · [whisper-cpp](docs/whisper-cpp.md) · [stable-diffusion-cpp](docs/stable-diffusion-cpp.md) · [crispasr](docs/crispasr.md) · [acestep-cpp](docs/acestep-cpp.md) · [omnivoice-cpp](docs/omnivoice-cpp.md).
 
 ## 🖥️ GPU compatibility & validation
 

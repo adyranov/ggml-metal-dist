@@ -77,7 +77,12 @@ jobs:
           ./scripts/dist.sh "${args[@]}"
   build-release:
     needs: [plan, ggml_head, prefetch]
-    if: needs.plan.outputs.has_release_work == 'true'
+    if: |
+      !failure() && !cancelled() &&
+      needs.plan.outputs.has_release_work == 'true' &&
+      needs.plan.result == 'success' &&
+      needs.ggml_head.result == 'success' &&
+      (needs.prefetch.result == 'success' || needs.prefetch.result == 'skipped')
     timeout-minutes: 90
     strategy:
       fail-fast: false

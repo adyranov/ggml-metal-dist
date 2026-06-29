@@ -107,7 +107,6 @@ MODEL_FIELDS: dict[str, list[str]] = {
         "height",
         "min_bytes",
     ],
-    "parakeet-cpp": ["name", "repo", "file", "decoder", "expected"],
     "crispasr": ["name", "repo", "file", "expected", "backend"],
     "acestep-cpp": ["name", "repo", "lm", "enc", "dit", "vae", "caption", "steps", "duration"],
     "omnivoice-cpp": ["name", "repo", "model_file", "codec_file", "lang", "text"],
@@ -306,7 +305,7 @@ def _hf_pairs_for_entry(tool: str, tier: str, entry: dict) -> list[tuple[str, st
     if tool == "whisper-cpp":
         model_id = entry["id"]
         pairs.append((WHISPER_HF_REPO, f"ggml-{model_id}.bin"))
-    elif tool in ("llama-cpp", "parakeet-cpp", "crispasr"):
+    elif tool in ("llama-cpp", "crispasr"):
         pairs.append((entry["repo"], entry["file"]))
     elif tool == "acestep-cpp":
         repo = entry["repo"]

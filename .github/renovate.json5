@@ -48,17 +48,6 @@
     },
     {
       customType: "regex",
-      description: "Track parakeet.cpp upstream releases (semver)",
-      managerFilePatterns: ["/^manifest\\.json$/"],
-      matchStrings: [
-        '"upstream_url":\\s*"https://github\\.com/mudler/parakeet\\.cpp\\.git",\\s*"upstream_ref":\\s*"(?<currentValue>[^"]+)"',
-      ],
-      depNameTemplate: "mudler/parakeet.cpp",
-      datasourceTemplate: "github-tags",
-      versioningTemplate: "semver",
-    },
-    {
-      customType: "regex",
       description: "Track CrispASR upstream releases (semver)",
       managerFilePatterns: ["/^manifest\\.json$/"],
       matchStrings: [
@@ -121,18 +110,16 @@
       groupSlug: "upstream-weekly",
       branchPrefix: "renovate/upstream-",
       addLabels: ["upstream-rebuild"],
-      commitMessageTopic: "upstream refs",
-      commitMessageExtra: "({{groupName}})",
+      commitMessageTopic: "weekly upstream deps",
     },
     {
-      description: "Low-frequency upstreams — update after release buffer",
-      matchDepNames: ["ggml-org/ggml", "ggml-org/whisper.cpp", "mudler/parakeet.cpp", "CrispStrobe/CrispASR", "ServeurpersoCom/acestep.cpp", "ServeurpersoCom/omnivoice.cpp"],
+      description: "Low-frequency upstreams — individual PRs per dep",
+      matchDepNames: ["ggml-org/ggml", "ggml-org/whisper.cpp", "CrispStrobe/CrispASR", "ServeurpersoCom/acestep.cpp", "ServeurpersoCom/omnivoice.cpp"],
       schedule: ["at any time"],
       minimumReleaseAge: "2 days",
       branchPrefix: "renovate/upstream-",
       addLabels: ["upstream-rebuild"],
-      commitMessageTopic: "upstream refs",
-      commitMessageExtra: "({{groupName}})",
+      commitMessageTopic: "{{{depName}}}",
     },
   ],
 }

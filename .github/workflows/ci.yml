@@ -72,8 +72,12 @@ jobs:
           ./scripts/dist.sh "${args[@]}"
   validate:
     needs: [plan, ggml_head, prefetch]
-    if: >-
-      needs.plan.outputs.has_work == 'true' && needs.ggml_head.result == 'success' && (needs.prefetch.result == 'success' || needs.prefetch.result == 'skipped')
+    if: |
+      !failure() && !cancelled() &&
+      needs.plan.outputs.has_work == 'true' &&
+      needs.plan.result == 'success' &&
+      needs.ggml_head.result == 'success' &&
+      (needs.prefetch.result == 'success' || needs.prefetch.result == 'skipped')
     uses: ./.github/workflows/_validate.yml
     with:
       tier: smoke

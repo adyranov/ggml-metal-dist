@@ -247,11 +247,12 @@ cmd_plan_ci() {
         shift
     done
 
-    local matrix_mode=all affected_base_ref="" changed matrix brew_deps has_work
+    local matrix_mode=all affected_base_ref="" changed non_manifest matrix brew_deps has_work
     if [ "$event_name" = pull_request ]; then
         [ -n "$pr_base_sha" ] || die "plan-ci requires --pr-base-sha for pull_request"
         changed=$(git diff --name-only "$pr_base_sha" HEAD)
-        if [ -n "$changed" ] && ! printf '%s\n' "$changed" | grep -v '^manifest\.json$' >/dev/null; then
+        non_manifest=$(printf '%s\n' "$changed" | grep -xv 'manifest\.json' || true)
+        if [ -n "$changed" ] && [ -z "$non_manifest" ]; then
             matrix_mode=affected
             affected_base_ref=$pr_base_sha
         fi
@@ -270,6 +271,14 @@ cmd_plan_ci() {
     brew_deps=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" brew-deps build)
     has_work=$(matrix_has_work "$matrix")
     prefetch_has_work=$(matrix_has_work "$prefetch_matrix")
+
+    log "plan-ci: matrix_mode=$matrix_mode has_work=$has_work prefetch_has_work=$prefetch_has_work"
+    if [ "$matrix_mode" = affected ]; then
+        log "plan-ci: affected_base_ref=$affected_base_ref"
+        local affected_list
+        affected_list=$(python3 "$DIST_ROOT/scripts/manifest_cli.py" affected-tools --base-ref "$affected_base_ref" build 2>/dev/null | tr '\n' ' ')
+        log "plan-ci: affected tools: ${affected_list:-<none>}"
+    fi
 
     emit_output matrix_mode "$matrix_mode"
     emit_output affected_base_ref "$affected_base_ref"
@@ -603,11 +612,17 @@ install_targets() {
         return 0
     fi
     mkdir -p "$stage/bin"
-    local target src
+    local target src dest
     for target in "$@"; do
+        if [[ "$target" == *":"* ]]; then
+            dest="${target#*:}"
+            target="${target%%:*}"
+        else
+            dest="$target"
+        fi
         src=$(find "$build" -type f -path "*/bin/$target" -perm +111 2>/dev/null | head -n1)
         [ -n "$src" ] || die "built target not found: $target"
-        install -m 755 "$src" "$stage/bin/$target"
+        install -m 755 "$src" "$stage/bin/$dest"
     done
 }
 
