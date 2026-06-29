@@ -16,7 +16,7 @@
       "url": "https://github.com/adyranov/ggml.git",
       "branch": "metal-intel-mac",
       "upstream_url": "https://github.com/ggml-org/ggml.git",
-      "upstream_ref": "v0.15.1"
+      "upstream_ref": "v0.15.3"
     },
     "llama-cpp": {
       "upstream_url": "https://github.com/ggml-org/llama.cpp.git",
