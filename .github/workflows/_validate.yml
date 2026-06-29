@@ -34,7 +34,7 @@ jobs:
       HF_HUB_CACHE: ${{ github.workspace }}/.hf-cache/hub
       HUGGINGFACE_HUB_CACHE: ${{ github.workspace }}/.hf-cache/hub
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - id: setup_build_env
@@ -49,7 +49,7 @@ jobs:
         uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
       - name: Restore Hugging Face models cache
         if: matrix.type != 'unit'
-        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .hf-cache/hub
           key: ${{ env.HF_CACHE_KEY_PREFIX }}-${{ hashFiles('manifest.json') }}
@@ -79,7 +79,7 @@ jobs:
       - name: Save ccache
         if: (matrix.type == 'unit' || matrix.type == 'build') && always() && steps.setup_build_env.outputs.ccache_hit != 'true'
         continue-on-error: true
-        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ github.workspace }}/.ccache
           key: ccache-${{ matrix.tool }}-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
