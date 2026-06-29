@@ -25,11 +25,11 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
         persist-credentials: false
     - name: Cache Homebrew downloads
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/Library/Caches/Homebrew/downloads
         key: brew-${{ inputs.runs_on }}-${{ hashFiles('manifest.json') }}
@@ -38,7 +38,7 @@ runs:
     - name: Cache ccache
       id: ccache-restore
       if: inputs.enable_ccache == 'true'
-      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ github.workspace }}/.ccache
         key: ccache-${{ inputs.cache_prefix }}${{ inputs.tool }}-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}

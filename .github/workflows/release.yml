@@ -27,7 +27,7 @@ jobs:
       has_release_work: ${{ steps.plan.outputs.has_release_work }}
       prefetch_has_work: ${{ steps.plan.outputs.prefetch_has_work }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -61,7 +61,7 @@ jobs:
     outputs:
       ggml_head: ${{ steps.ggml.outputs.ggml_head }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -95,7 +95,7 @@ jobs:
       EXPECTED_GGML_HEAD: ${{ needs.ggml_head.outputs.ggml_head }}
       VERSION: ${{ needs.plan.outputs.version }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - id: setup_build_env
@@ -115,7 +115,7 @@ jobs:
             --expected-ggml-head "$EXPECTED_GGML_HEAD"
           ccache --show-stats || true
       - name: Restore Hugging Face models cache
-        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .hf-cache/hub
           key: hf-models-smoke-${{ matrix.tool }}-${{ hashFiles('manifest.json') }}
@@ -169,7 +169,7 @@ jobs:
       - name: Save ccache
         if: always() && steps.setup_build_env.outputs.ccache_hit != 'true'
         continue-on-error: true
-        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ github.workspace }}/.ccache
           key: ccache-${{ matrix.tool }}-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
@@ -191,7 +191,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Download all artifacts
