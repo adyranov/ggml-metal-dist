@@ -95,10 +95,10 @@ bench_sd() {
         out="$OUT_DIR/$name-bench.png"
         rm -f "$out"
         args=()
-        if [ "$family" = sdxs ]; then
-            args+=( --model "$diff_path" )
+        if [ -z "$extra" ]; then
+            args+=(--model "$diff_path")
         else
-            args+=( --diffusion-model "$diff_path" )
+            args+=(--diffusion-model "$diff_path")
         fi
         # shellcheck disable=SC2206
         args+=( $extra -p "$prompt" -W "$width" -H "$height" )
@@ -136,8 +136,14 @@ run_sd() {
     describe_test "txt2img ${family} (${w}x${h}, ${steps} steps)" "valid PNG, > ${min_bytes}B"
     detail "run | ${name} (family=${family})"
 
-    local args=(-m "$GGUF_PATH" -p "$prompt" -W "$w" -H "$h" \
-        --steps "$steps" --cfg-scale "$cfg" -o "$out_png" -v \
+    local args=()
+    if [ $# -eq 0 ]; then
+        args+=(--model "$GGUF_PATH")
+    else
+        args+=(--diffusion-model "$GGUF_PATH")
+    fi
+    args+=(-p "$prompt" -W "$w" -H "$h"
+        --steps "$steps" --cfg-scale "$cfg" -o "$out_png" -v
         --offload-to-cpu --diffusion-fa --vae-tiling --clip-on-cpu -t "$THREADS" --seed 42 "$@")
     [ "$neg" = 1 ] && args+=( -n "$NEGATIVE" )
 

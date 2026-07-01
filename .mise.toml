@@ -2,7 +2,7 @@
 experimental = true
 
 [tools]
-"aqua:astral-sh/uv" = "0.11.25"
+"aqua:astral-sh/uv" = "latest"
 pre-commit = "latest"
 python = "3.14"
 

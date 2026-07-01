@@ -12,3 +12,4 @@ __pycache__/
 .ruff_cache/
 *.log
 .vscode/tasks.json
+.plannotator/
