@@ -35,7 +35,7 @@
     },
     "crispasr": {
       "upstream_url": "https://github.com/CrispStrobe/CrispASR.git",
-      "upstream_ref": "v0.8.6",
+      "upstream_ref": "v0.8.8",
       "patches": [
         "patches/crispasr/0001-injected-ggml-api-compat.patch",
         "patches/crispasr/0002-indextts-aa-native.patch"

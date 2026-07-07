@@ -1,12 +1,19 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From e6041133a7ac1c52c60c04d3c72ed9036e59d2f0 Mon Sep 17 00:00:00 2001
+From: Artem Dyranov <1038141+adyranov@users.noreply.github.com>
+Date: Tue, 7 Jul 2026 09:22:37 -0400
 Subject: [PATCH] indextts: use native AA ops on injected ggml
 
 Avoid CrispASR-only ggml_aa_snake_beta and the CPU map_custom1 fallback so
 IndexTTS BigVGAN stays on the reconciled Metal fork without a ggml patch.
 ---
+ src/indextts_voc.cpp | 53 +++++++-------------------------------------
+ 1 file changed, 8 insertions(+), 45 deletions(-)
+
+diff --git a/src/indextts_voc.cpp b/src/indextts_voc.cpp
+index 1cb09c6..7fb2c21 100644
 --- a/src/indextts_voc.cpp
 +++ b/src/indextts_voc.cpp
-@@ -529,19 +529,9 @@
+@@ -556,19 +556,9 @@ static ggml_tensor* aa_snake_beta_native(ggml_context* ctx, ggml_tensor* x, ggml
      return ggml_reshape_2d(ctx, down3, T, C);
  }
 
@@ -29,7 +36,7 @@ IndexTTS BigVGAN stays on the reconciled Metal fork without a ggml patch.
 
  // ── ECAPA-TDNN speaker encoder ──────────────────────────────────
  //
-@@ -1093,13 +1083,7 @@
+@@ -1120,13 +1110,7 @@ static ggml_cgraph* build_bigvgan_graph(indextts_voc_context* c, int T_in) {
                      ggml_tensor* usf1 = T(ts, key);
                      std::snprintf(key, sizeof(key), "resb.%d.act.%d.ds.filter", rb_idx, act_idx_1);
                      ggml_tensor* dsf1 = T(ts, key);
@@ -44,7 +51,7 @@ IndexTTS BigVGAN stays on the reconciled Metal fork without a ggml patch.
                  } else {
                      x = snake_beta_raw(ctx0, x, alpha1, beta1);
                  }
-@@ -1127,13 +1111,7 @@
+@@ -1154,13 +1138,7 @@ static ggml_cgraph* build_bigvgan_graph(indextts_voc_context* c, int T_in) {
                      ggml_tensor* usf2 = T(ts, key);
                      std::snprintf(key, sizeof(key), "resb.%d.act.%d.ds.filter", rb_idx, act_idx_2);
                      ggml_tensor* dsf2 = T(ts, key);
@@ -59,7 +66,7 @@ IndexTTS BigVGAN stays on the reconciled Metal fork without a ggml patch.
                  } else {
                      x = snake_beta_raw(ctx0, x, alpha2, beta2);
                  }
-@@ -1176,13 +1154,7 @@
+@@ -1203,13 +1181,7 @@ static ggml_cgraph* build_bigvgan_graph(indextts_voc_context* c, int T_in) {
          if (c->use_aa) {
              ggml_tensor* usf_post = T(ts, "activation_post.us.filter");
              ggml_tensor* dsf_post = T(ts, "activation_post.ds.filter");
@@ -74,7 +81,7 @@ IndexTTS BigVGAN stays on the reconciled Metal fork without a ggml patch.
          } else {
              x = snake_beta_raw(ctx0, x, alpha_post, beta_post);
          }
-@@ -1328,23 +1300,14 @@
+@@ -1355,22 +1327,13 @@ extern "C" struct indextts_voc_context* indextts_voc_init(const char* path, int
          delete c;
          return nullptr;
      }
@@ -86,7 +93,7 @@ IndexTTS BigVGAN stays on the reconciled Metal fork without a ggml patch.
 +    // Decomposed AA ops run on the active backend; no CPU-only custom-op fallback.
 +    const bool aa_blocks_gpu = false;
      const bool effective_use_gpu = use_gpu && !aa_blocks_gpu;
-     c->backend = effective_use_gpu ? ggml_backend_init_best() : c->backend_cpu;
+     c->backend = effective_use_gpu ? crispasr_init_gpu_backend() : c->backend_cpu;
      if (!c->backend) {
          c->backend = c->backend_cpu;
      }
@@ -99,4 +106,5 @@ IndexTTS BigVGAN stays on the reconciled Metal fork without a ggml patch.
 
      // Pass 2: weights
      {
-         core_gguf::WeightLoad wl;
+--
+2.55.0

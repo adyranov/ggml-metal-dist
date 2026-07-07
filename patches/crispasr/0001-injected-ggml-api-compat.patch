@@ -1,6 +1,6 @@
-From ff59b43f02e6dbf68e7b8a6dd908a2da52f22e5c Mon Sep 17 00:00:00 2001
+From 2f2e74950f465abda3c902ab92dc9d0997614d22 Mon Sep 17 00:00:00 2001
 From: Artem Dyranov <1038141+adyranov@users.noreply.github.com>
-Date: Wed, 17 Jun 2026 00:25:09 -0400
+Date: Tue, 7 Jul 2026 09:20:40 -0400
 Subject: [PATCH] compat: injected ggml API shims
 
 ---
@@ -8,10 +8,7 @@ Subject: [PATCH] compat: injected ggml API shims
  src/core/fastconformer.h                      |  1 +
  src/core/ggml_crisp_compat.h                  | 46 +++++++++++++++++++
  src/core/sanm.h                               |  1 +
- src/funasr.cpp                                |  1 +
- src/paraformer.cpp                            |  1 +
- src/sensevoice.cpp                            |  1 +
- 7 files changed, 52 insertions(+), 1 deletion(-)
+ 4 files changed, 49 insertions(+), 1 deletion(-)
  create mode 100644 src/core/ggml_crisp_compat.h
 
 diff --git a/examples/talk-llama/models/delta-net-base.cpp b/examples/talk-llama/models/delta-net-base.cpp
@@ -28,7 +25,7 @@ index df5e52c..d8c5a88 100755
          cb(result, LLAMA_TENSOR_NAME_FGDN_AR, il);
      } else {
 diff --git a/src/core/fastconformer.h b/src/core/fastconformer.h
-index 89535c6..2ab23b5 100755
+index 8d62746..17d27c2 100755
 --- a/src/core/fastconformer.h
 +++ b/src/core/fastconformer.h
 @@ -25,6 +25,7 @@
@@ -103,41 +100,5 @@ index e0fb0a0..2b4dd05 100755
 
  #include <cmath>
  #include <cstddef>
-diff --git a/src/funasr.cpp b/src/funasr.cpp
-index 9cef882..76701d8 100755
---- a/src/funasr.cpp
-+++ b/src/funasr.cpp
-@@ -10,6 +10,7 @@
- #include "ggml-backend.h"
- #include "ggml-cpu.h"
- #include "ggml.h"
-+#include "core/ggml_crisp_compat.h"
- #include "gguf.h"
-
- #include "core/attention.h"
-diff --git a/src/paraformer.cpp b/src/paraformer.cpp
-index c049145..9a6b0c9 100755
---- a/src/paraformer.cpp
-+++ b/src/paraformer.cpp
-@@ -14,6 +14,7 @@
- #include "core/gguf_loader.h"
-
- #include "ggml.h"
-+#include "core/ggml_crisp_compat.h"
- #include "ggml-backend.h"
- #include "ggml-cpu.h"
-
-diff --git a/src/sensevoice.cpp b/src/sensevoice.cpp
-index a1466a7..8e2e90e 100755
---- a/src/sensevoice.cpp
-+++ b/src/sensevoice.cpp
-@@ -10,6 +10,7 @@
- #include "ggml-backend.h"
- #include "ggml-cpu.h"
- #include "ggml.h"
-+#include "core/ggml_crisp_compat.h"
- #include "gguf.h"
-
- #include "core/ctc.h"
 --
-2.54.0
+2.55.0
