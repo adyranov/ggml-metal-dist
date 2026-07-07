@@ -20,7 +20,7 @@
     },
     "llama-cpp": {
       "upstream_url": "https://github.com/ggml-org/llama.cpp.git",
-      "upstream_ref": "b9852"
+      "upstream_ref": "b9873"
     },
     "whisper-cpp": {
       "upstream_url": "https://github.com/ggml-org/whisper.cpp.git",
@@ -28,7 +28,7 @@
     },
     "stable-diffusion-cpp": {
       "upstream_url": "https://github.com/leejet/stable-diffusion.cpp.git",
-      "upstream_ref": "master-741-484baa4",
+      "upstream_ref": "master-749-b11c95a",
       "patches": [
         "patches/stable-diffusion-cpp/0001-gate-server-example-build.patch"
       ]
