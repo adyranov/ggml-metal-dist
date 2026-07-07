@@ -28,7 +28,7 @@
     },
     "stable-diffusion-cpp": {
       "upstream_url": "https://github.com/leejet/stable-diffusion.cpp.git",
-      "upstream_ref": "master-749-b11c95a",
+      "upstream_ref": "master-758-c674225",
       "patches": [
         "patches/stable-diffusion-cpp/0001-gate-server-example-build.patch"
       ]
