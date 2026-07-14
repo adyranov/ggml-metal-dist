@@ -1,6 +1,6 @@
 From e6041133a7ac1c52c60c04d3c72ed9036e59d2f0 Mon Sep 17 00:00:00 2001
 From: Artem Dyranov <1038141+adyranov@users.noreply.github.com>
-Date: Tue, 7 Jul 2026 09:22:37 -0400
+Date: Mon, 13 Jul 2026 20:00:00 -0400
 Subject: [PATCH] indextts: use native AA ops on injected ggml
 
 Avoid CrispASR-only ggml_aa_snake_beta and the CPU map_custom1 fallback so
