@@ -50,7 +50,7 @@
     },
     "omnivoice-cpp": {
       "upstream_url": "https://github.com/ServeurpersoCom/omnivoice.cpp.git",
-      "upstream_ref": "98a5d5fb43268fb85c637ac0a29ed67cc6a1f7d9",
+      "upstream_ref": "4f33af825d66e6ef1cb185e87b4589cacf747291",
       "patches": [
         "patches/omnivoice-cpp/0001-cmake-runtime-output-bin.patch"
       ]
