@@ -11,7 +11,7 @@ GitHub Actions workflows for lint, validate, build, and release.
 
 - Pin actions to full SHA with a `# vX.Y.Z` comment.
 - Top-level `permissions: contents: read` (elevate per-job only when needed).
-- Pass `${{ }}` expressions via `env:`, never inline in `run:` (zizmor).
+- Pass `${{ }}` expressions via `env:`, never inline in `run:`.
 - `persist-credentials: false` on checkout where applicable.
 
 ## Manifest-driven matrices

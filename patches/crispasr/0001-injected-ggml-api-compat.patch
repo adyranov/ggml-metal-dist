@@ -1,44 +1,14 @@
-From a6d7269a1b2fe26b2c5b3bc73cd02bf6e0d18842 Mon Sep 17 00:00:00 2001
-From: Artem Dyranov <1038141+adyranov@users.noreply.github.com>
-Date: Mon, 13 Jul 2026 20:00:00 -0400
-Subject: [PATCH] compat: injected ggml API shims
-
----
- examples/talk-llama/models/delta-net-base.cpp |  2 +-
- src/core/fastconformer.h                      |  1 +
- src/core/ggml_crisp_compat.h                  | 46 +++++++++++++++++++
- src/core/sanm.h                               |  1 +
- 4 files changed, 49 insertions(+), 1 deletion(-)
- create mode 100644 src/core/ggml_crisp_compat.h
-
-diff --git a/examples/talk-llama/models/delta-net-base.cpp b/examples/talk-llama/models/delta-net-base.cpp
-index df5e52c..d8c5a88 100755
---- a/examples/talk-llama/models/delta-net-base.cpp
-+++ b/examples/talk-llama/models/delta-net-base.cpp
-@@ -383,7 +383,7 @@ std::pair<ggml_tensor*, ggml_tensor*> llm_build_delta_net_base::build_delta_net_
-     GGML_ASSERT(b->ne[0] == 1 && b->ne[1] == H_v && b->ne[2] == n_tokens && b->ne[3] == n_seqs);
-     GGML_ASSERT(s->ne[0] == S_v && s->ne[1] == S_v && s->ne[2] == H_v && s->ne[3] == n_seqs);
-
--    ggml_tensor* result = ggml_gated_delta_net(ctx0, q, k, v, g, b, s);
-+    ggml_tensor* result = ggml_gated_delta_net(ctx0, q, k, v, g, b, s, 1);
-     if (n_tokens == 1) {
-         cb(result, LLAMA_TENSOR_NAME_FGDN_AR, il);
-     } else {
 diff --git a/src/core/fastconformer.h b/src/core/fastconformer.h
-index ec3c3f6..24b7686 100644
 --- a/src/core/fastconformer.h
 +++ b/src/core/fastconformer.h
-@@ -28,6 +28,7 @@
- #include "ggml-backend.h"
- #include "ggml-cpu.h"
+@@ -30,3 +30,4 @@
  #include "ggml.h"
 +#include "ggml_crisp_compat.h"
-
+-
++
  #include <cmath>
- #include <cstddef>
 diff --git a/src/core/ggml_crisp_compat.h b/src/core/ggml_crisp_compat.h
 new file mode 100644
-index 0000000..338c2b1
 --- /dev/null
 +++ b/src/core/ggml_crisp_compat.h
 @@ -0,0 +1,46 @@
@@ -89,16 +59,21 @@ index 0000000..338c2b1
 +}
 +#endif
 diff --git a/src/core/sanm.h b/src/core/sanm.h
-index e0fb0a0..2b4dd05 100755
 --- a/src/core/sanm.h
 +++ b/src/core/sanm.h
-@@ -46,6 +46,7 @@
- #pragma once
-
+@@ -48,3 +48,4 @@
  #include "ggml.h"
 +#include "ggml_crisp_compat.h"
-
+-
++
  #include <cmath>
- #include <cstddef>
---
-2.55.0
+diff --git a/src/sidon.cpp b/src/sidon.cpp
+--- a/src/sidon.cpp
++++ b/src/sidon.cpp
+@@ -3,5 +3,6 @@
+ #include "ggml-alloc.h"
+ #include "ggml-backend.h"
+ #include "ggml-cpu.h"
+ #include "ggml.h"
++#include "core/ggml_crisp_compat.h"
+ #include "gguf.h"

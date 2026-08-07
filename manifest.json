@@ -14,28 +14,28 @@
   "repos": {
     "ggml": {
       "url": "https://github.com/adyranov/ggml.git",
-      "branch": "metal-intel-mac",
+      "branch": "release/0.18.1",
       "upstream_url": "https://github.com/ggml-org/ggml.git",
-      "upstream_ref": "v0.16.0"
+      "upstream_ref": "v0.18.1"
     },
     "llama-cpp": {
       "upstream_url": "https://github.com/ggml-org/llama.cpp.git",
-      "upstream_ref": "b9969"
+      "upstream_ref": "b10289"
     },
     "whisper-cpp": {
       "upstream_url": "https://github.com/ggml-org/whisper.cpp.git",
-      "upstream_ref": "v1.9.1"
+      "upstream_ref": "v1.9.2"
     },
     "stable-diffusion-cpp": {
       "upstream_url": "https://github.com/leejet/stable-diffusion.cpp.git",
-      "upstream_ref": "master-777-833369d",
+      "upstream_ref": "master-813-bfbef5b",
       "patches": [
         "patches/stable-diffusion-cpp/0001-gate-server-example-build.patch"
       ]
     },
     "crispasr": {
       "upstream_url": "https://github.com/CrispStrobe/CrispASR.git",
-      "upstream_ref": "v0.8.10",
+      "upstream_ref": "v0.8.25",
       "patches": [
         "patches/crispasr/0001-injected-ggml-api-compat.patch",
         "patches/crispasr/0002-indextts-aa-native.patch"
@@ -43,14 +43,14 @@
     },
     "acestep-cpp": {
       "upstream_url": "https://github.com/ServeurpersoCom/acestep.cpp.git",
-      "upstream_ref": "37ee5e23b0714a1ecdd1c545b21ab54ea138d202",
+      "upstream_ref": "fa337757a0a0d4a576d129bb45dbef00ceced73c",
       "patches": [
         "patches/acestep-cpp/0001-cmake-runtime-output-bin.patch"
       ]
     },
     "omnivoice-cpp": {
       "upstream_url": "https://github.com/ServeurpersoCom/omnivoice.cpp.git",
-      "upstream_ref": "98a5d5fb43268fb85c637ac0a29ed67cc6a1f7d9",
+      "upstream_ref": "4f33af825d66e6ef1cb185e87b4589cacf747291",
       "patches": [
         "patches/omnivoice-cpp/0001-cmake-runtime-output-bin.patch"
       ]

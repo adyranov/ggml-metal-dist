@@ -1,44 +1,7 @@
-From e6041133a7ac1c52c60c04d3c72ed9036e59d2f0 Mon Sep 17 00:00:00 2001
-From: Artem Dyranov <1038141+adyranov@users.noreply.github.com>
-Date: Mon, 13 Jul 2026 20:00:00 -0400
-Subject: [PATCH] indextts: use native AA ops on injected ggml
-
-Avoid CrispASR-only ggml_aa_snake_beta and the CPU map_custom1 fallback so
-IndexTTS BigVGAN stays on the reconciled Metal fork without a ggml patch.
----
- src/indextts_voc.cpp | 53 +++++++-------------------------------------
- 1 file changed, 8 insertions(+), 45 deletions(-)
-
 diff --git a/src/indextts_voc.cpp b/src/indextts_voc.cpp
-index 1cb09c6..7fb2c21 100644
 --- a/src/indextts_voc.cpp
 +++ b/src/indextts_voc.cpp
-@@ -556,19 +556,9 @@ static ggml_tensor* aa_snake_beta_native(ggml_context* ctx, ggml_tensor* x, ggml
-     return ggml_reshape_2d(ctx, down3, T, C);
- }
-
--// Dispatch by env: INDEXTTS_AA_BACKEND=native picks the ggml-native path;
--// INDEXTTS_AA_BACKEND=op (or =metal) picks the new fused `ggml_aa_snake_beta`
--// op (Step C-2); anything else (or unset) stays on the proven CPU custom-op
--// path.
--static bool aa_use_native() {
--    const char* v = getenv("INDEXTTS_AA_BACKEND");
--    return v && (v[0] == 'n' || v[0] == 'N');
--}
--static bool aa_use_opvariant() {
--    const char* v = getenv("INDEXTTS_AA_BACKEND");
--    // Match "op", "Op", "metal", "Metal".
--    return v && (v[0] == 'o' || v[0] == 'O' || v[0] == 'm' || v[0] == 'M');
--}
-+// ggml-metal-dist: always use decomposed ggml ops for AA SnakeBeta so the
-+// vocoder graph stays on the injected reconciled Metal fork (no CrispASR-only
-+// ggml_aa_snake_beta op or CPU map_custom1 fallback).
-
- // ── ECAPA-TDNN speaker encoder ──────────────────────────────────
- //
-@@ -1120,13 +1110,7 @@ static ggml_cgraph* build_bigvgan_graph(indextts_voc_context* c, int T_in) {
-                     ggml_tensor* usf1 = T(ts, key);
-                     std::snprintf(key, sizeof(key), "resb.%d.act.%d.ds.filter", rb_idx, act_idx_1);
+@@ -1123,10 +1123,4 @@
                      ggml_tensor* dsf1 = T(ts, key);
 -                    if (aa_use_native()) {
 -                        x = aa_snake_beta_native(ctx0, x, alpha1, beta1, usf1, dsf1);
@@ -50,10 +13,7 @@ index 1cb09c6..7fb2c21 100644
 +                    x = aa_snake_beta_native(ctx0, x, alpha1, beta1, usf1, dsf1);
                  } else {
                      x = snake_beta_raw(ctx0, x, alpha1, beta1);
-                 }
-@@ -1154,13 +1138,7 @@ static ggml_cgraph* build_bigvgan_graph(indextts_voc_context* c, int T_in) {
-                     ggml_tensor* usf2 = T(ts, key);
-                     std::snprintf(key, sizeof(key), "resb.%d.act.%d.ds.filter", rb_idx, act_idx_2);
+@@ -1157,10 +1157,4 @@
                      ggml_tensor* dsf2 = T(ts, key);
 -                    if (aa_use_native()) {
 -                        x = aa_snake_beta_native(ctx0, x, alpha2, beta2, usf2, dsf2);
@@ -65,10 +25,7 @@ index 1cb09c6..7fb2c21 100644
 +                    x = aa_snake_beta_native(ctx0, x, alpha2, beta2, usf2, dsf2);
                  } else {
                      x = snake_beta_raw(ctx0, x, alpha2, beta2);
-                 }
-@@ -1203,13 +1181,7 @@ static ggml_cgraph* build_bigvgan_graph(indextts_voc_context* c, int T_in) {
-         if (c->use_aa) {
-             ggml_tensor* usf_post = T(ts, "activation_post.us.filter");
+@@ -1206,10 +1206,4 @@
              ggml_tensor* dsf_post = T(ts, "activation_post.ds.filter");
 -            if (aa_use_native()) {
 -                x = aa_snake_beta_native(ctx0, x, alpha_post, beta_post, usf_post, dsf_post);
@@ -80,12 +37,23 @@ index 1cb09c6..7fb2c21 100644
 +            x = aa_snake_beta_native(ctx0, x, alpha_post, beta_post, usf_post, dsf_post);
          } else {
              x = snake_beta_raw(ctx0, x, alpha_post, beta_post);
-         }
-@@ -1355,22 +1327,13 @@ extern "C" struct indextts_voc_context* indextts_voc_init(const char* path, int
+@@ -1345,33 +1345,15 @@
+-    // Backend — Step A: when AA SnakeBeta is on, the activation is a CPU-only
+-    // custom op (`ggml_map_custom1`). Mixing it with a GPU backend forces a
+-    // Metal → CPU → Metal sync per AMP block (≈ 20 sites). The sync overhead
+-    // exceeds whatever Metal wins on the matmuls around it, so the GPU+AA
+-    // combo measures ≈ 25 % SLOWER than CPU+AA on M1. Auto-fall to CPU here so
+-    // users don't have to remember `--no-gpu` for IndexTTS. Set
+-    // INDEXTTS_VOC_FORCE_GPU=1 to opt back into the slow mixed path (useful
+-    // for the benchmark history once Step B/C lift the AA op to GPU).
+     c->backend_cpu = ggml_backend_cpu_init();
+     if (!c->backend_cpu) {
+         fprintf(stderr, "indextts-voc: failed to init CPU backend\n");
          delete c;
          return nullptr;
      }
--    const bool force_gpu_with_aa = getenv("INDEXTTS_VOC_FORCE_GPU") && getenv("INDEXTTS_VOC_FORCE_GPU")[0] == '1';
+-    const bool force_gpu_with_aa = crispasr_env::get("CRISPASR_INDEXTTS_VOC_FORCE_GPU") &&
+-                                   crispasr_env::get("CRISPASR_INDEXTTS_VOC_FORCE_GPU")[0] == '1';
 -    // Native-ops AA (Step B) and the new ggml_aa_snake_beta op (Step C-2) both
 -    // run on whichever backend owns the graph — no Metal↔CPU sync at each AA
 -    // site. The auto-CPU fallback only applies to the legacy map_custom1 path.
@@ -105,6 +73,3 @@ index 1cb09c6..7fb2c21 100644
 -    }
 
      // Pass 2: weights
-     {
---
-2.55.0

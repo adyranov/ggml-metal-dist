@@ -88,7 +88,7 @@ pre-commit install
 pre-commit run --all-files   # optional: run all hooks once
 ```
 
-Hooks cover shellcheck, shfmt, ruff, yamlfmt, yamllint, actionlint, zizmor, gitleaks, typos, editorconfig-checker, and markdownlint.
+Hooks cover shellcheck, shfmt, ruff, yamlfmt, yamllint, actionlint, gitleaks, typos, editorconfig-checker, and markdownlint.
 [Renovate](https://docs.renovatebot.com/) bumps pre-commit hooks and GitHub Actions in grouped monthly PRs (see [`.github/renovate.json5`](.github/renovate.json5)).
 
 ## 📚 Documentation

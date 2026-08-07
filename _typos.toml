@@ -16,7 +16,6 @@ rpath = "rpath"
 simdgroup = "simdgroup"
 whisper = "whisper"
 yamllint = "yamllint"
-zizmor = "zizmor"
 
 [files]
 extend-exclude = ["manifest.json"]
