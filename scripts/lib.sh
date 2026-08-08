@@ -431,6 +431,39 @@ keywords_present() {
     done
 }
 
+assert_metal_backend() {
+    local output=$1 label=${2:-Metal backend}
+    # Require the authoritative effective-backend field (e.g. "backend: MTL0"),
+    # not a bare MTL<n> token anywhere in the output. Field name, value, and
+    # surrounding whitespace are case-insensitive; CPU/Vulkan never match.
+    if printf '%s\n' "$output" | grep -qiE '(^|[^[:alnum:]_])backend[[:space:]]*:[[:space:]]*MTL[0-9]+([^[:alnum:]]|$)'; then
+        return 0
+    fi
+    printf '  %s | no Metal backend field (expected "backend: MTL<index>")\n' "$label" >&2
+    printf '%s\n' "$output" | grep -iE 'backend|device|metal|vulkan|cpu' >&2 || true
+    return 1
+}
+
+assert_files_equal() {
+    local first=$1 second=$2 label=${3:-files}
+    [ -f "$first" ] || { printf '  %s | missing %s\n' "$label" "$first" >&2; return 1; }
+    [ -f "$second" ] || { printf '  %s | missing %s\n' "$label" "$second" >&2; return 1; }
+    local first_hash second_hash
+    if command -v shasum >/dev/null 2>&1; then
+        first_hash=$(shasum -a 256 "$first" | awk '{print $1}')
+        second_hash=$(shasum -a 256 "$second" | awk '{print $1}')
+    else
+        first_hash=$(sha256sum "$first" | awk '{print $1}')
+        second_hash=$(sha256sum "$second" | awk '{print $1}')
+    fi
+    if [ "$first_hash" = "$second_hash" ]; then
+        return 0
+    fi
+    printf '  %s | SHA-256 mismatch\n    %s: %s\n    %s: %s\n' \
+        "$label" "$first" "$first_hash" "$second" "$second_hash" >&2
+    return 1
+}
+
 # All manifest reads funnel through scripts/manifest_cli.py (single reader).
 manifest_query() {
     MANIFEST="$MANIFEST" python3 "$DIST_ROOT/scripts/manifest_cli.py" "$@"
@@ -462,6 +495,10 @@ manifest_models() {
 
 manifest_hf_files() {
     manifest_query hf-files "$1" "$2"
+}
+
+manifest_hf_sha256() {
+    manifest_query hf-sha256 "$1" "$2" "$3" "$4"
 }
 
 manifest_model_encoders() {
@@ -1024,6 +1061,21 @@ _hf_find_cached() {
     printf '%s' "$cached"
 }
 
+_hf_find_cached_matching() {
+    local cache=$1 repo=$2 find_pat=$3 expected=$4
+    local repo_cache cached
+    repo_cache=$(_hf_repo_cache_dir "$cache" "$repo")
+    [ -d "$repo_cache/snapshots" ] || return 1
+    while IFS= read -r cached; do
+        [ -f "$cached" ] || continue
+        if verify_file_sha256 "$cached" "$expected" 1; then
+            printf '%s' "$cached"
+            return 0
+        fi
+    done < <(find -L "$repo_cache/snapshots" -type f -iname "$find_pat" 2>/dev/null | sort)
+    return 1
+}
+
 # Parse hf/huggingface-cli download stdout (quiet, agent, or human formats).
 _hf_parse_download_path() {
     local raw=$1 line
@@ -1052,10 +1104,29 @@ _hf_parse_download_path() {
     printf '%s' "$line"
 }
 
+# Verify a downloaded/cache file when the manifest declares a digest.
+verify_file_sha256() {
+    local file=$1 expected=${2:-} quiet=${3:-0} actual
+    [ -n "$expected" ] || return 0
+    if command -v shasum >/dev/null 2>&1; then
+        actual=$(shasum -a 256 "$file" | awk '{print $1}')
+    else
+        actual=$(sha256sum "$file" | awk '{print $1}')
+    fi
+    if [ "$actual" = "$expected" ]; then
+        return 0
+    fi
+    if [ "$quiet" != 1 ]; then
+        printf '  sha256 mismatch | %s\n    expected: %s\n    actual:   %s\n' \
+            "$file" "$expected" "$actual" >&2
+    fi
+    return 1
+}
+
 # Download a single file matching <pattern> from a Hugging Face repo.
 # Sets: HF_FILE (absolute path to the downloaded/cached file)
 hf_fetch() {
-    local repo=$1 pattern=$2 find_glob=${3:-}
+    local repo=$1 pattern=$2 find_glob=${3:-} expected_sha256=${4:-}
     local cache out find_pat dl_args=() dl_log rc=0 cached hf_cmd=()
     hf_init_env
     while IFS= read -r arg; do
@@ -1065,8 +1136,14 @@ hf_fetch() {
     find_pat=${find_glob:-$(basename "$pattern")}
     detail "hf | ${repo} ← ${pattern}"
     detail "hf | cache ${cache}"
-    if cached=$(_hf_find_cached "$cache" "$repo" "$find_pat"); then
+    if [ -n "$expected_sha256" ]; then
+        cached=$(_hf_find_cached_matching "$cache" "$repo" "$find_pat" "$expected_sha256") || true
+    else
+        cached=$(_hf_find_cached "$cache" "$repo" "$find_pat") || true
+    fi
+    if [ -n "$cached" ]; then
         HF_FILE=$cached
+        verify_file_sha256 "$HF_FILE" "$expected_sha256" || return 1
         detail "hf | cached $(basename "$HF_FILE") ($(harness_file_size "$HF_FILE")) @ ${HF_FILE}"
         return 0
     fi
@@ -1107,6 +1184,7 @@ hf_fetch() {
         HF_FILE=$(find -L "$out" -type f -iname "$find_pat" 2>/dev/null | sort | head -n1)
     fi
     if [ -n "$HF_FILE" ] && [ -f "$HF_FILE" ]; then
+        verify_file_sha256 "$HF_FILE" "$expected_sha256" || return 1
         detail "hf | ready $(basename "$HF_FILE") ($(harness_file_size "$HF_FILE")) @ ${HF_FILE}"
         return 0
     fi

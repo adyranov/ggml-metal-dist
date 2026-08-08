@@ -59,6 +59,17 @@
     },
     {
       customType: "regex",
+      description: "Track transcribe.cpp upstream releases (semver)",
+      managerFilePatterns: ["/^manifest\\.json$/"],
+      matchStrings: [
+        '"upstream_url":\\s*"https://github\\.com/handy-computer/transcribe\\.cpp\\.git",\\s*"upstream_ref":\\s*"(?<currentValue>[^"]+)"',
+      ],
+      depNameTemplate: "handy-computer/transcribe.cpp",
+      datasourceTemplate: "github-tags",
+      versioningTemplate: "semver",
+    },
+    {
+      customType: "regex",
       description: "Track acestep.cpp upstream (no tags: pin master commit digest)",
       managerFilePatterns: ["/^manifest\\.json$/"],
       matchStrings: [
@@ -114,7 +125,7 @@
     },
     {
       description: "Low-frequency upstreams — individual PRs per dep",
-      matchDepNames: ["ggml-org/ggml", "ggml-org/whisper.cpp", "CrispStrobe/CrispASR", "ServeurpersoCom/acestep.cpp", "ServeurpersoCom/omnivoice.cpp"],
+      matchDepNames: ["ggml-org/ggml", "ggml-org/whisper.cpp", "CrispStrobe/CrispASR", "handy-computer/transcribe.cpp", "ServeurpersoCom/acestep.cpp", "ServeurpersoCom/omnivoice.cpp"],
       schedule: ["at any time"],
       minimumReleaseAge: "2 days",
       branchPrefix: "renovate/upstream-",

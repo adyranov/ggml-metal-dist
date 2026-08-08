@@ -10,6 +10,7 @@ Usage:
     manifest_cli.py repo-field <repo> <fld> # one field of repos.<repo> (bool -> 1/0)
     manifest_cli.py tool-field <tool> <fld> # one field of tools.<tool> (list -> joined)
     manifest_cli.py hf-files <tool> <tier>       # tab-separated repo/pattern rows
+    manifest_cli.py hf-sha256 <tool> <tier> <repo> <file>  # expected digest
     manifest_cli.py model-encoders <tool> <tier> <name>  # tab-separated flag/repo/file
     manifest_cli.py upstream-ref <repo>     # current upstream_ref for a repo
     manifest_cli.py affected-tools --base-ref REF [pipeline]  # affected tools
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -46,9 +48,13 @@ _REQUIRED_TOP_KEYS = ("repos", "tools", "ci")
 _REQUIRED_GGML_REPO_KEYS = ("url", "branch", "upstream_url", "upstream_ref")
 _REQUIRED_APP_REPO_KEYS = ("upstream_url", "upstream_ref")
 _REQUIRED_TOOL_KEYS = ("repo", "pipelines")
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_DIGEST_REQUIRED_TOOLS = {"transcribe-cpp"}
 
 
-def _validate_manifest(data: dict, allow_legacy_app_forks: bool = False) -> None:
+def _validate_manifest(
+    data: dict, allow_legacy_app_forks: bool = False, require_adapters: bool = True
+) -> None:
     for key in _REQUIRED_TOP_KEYS:
         if key not in data:
             sys.exit(f"manifest missing required top-level key: {key}")
@@ -85,6 +91,8 @@ def _validate_manifest(data: dict, allow_legacy_app_forks: bool = False) -> None
         for key in _REQUIRED_TOOL_KEYS:
             if key not in tool:
                 sys.exit(f"tool '{name}' missing required key: {key}")
+    if require_adapters:
+        _validate_model_adapters(data)
 
 
 def tools_for_pipeline(data: dict, pipeline: str) -> list[str]:
@@ -108,9 +116,66 @@ MODEL_FIELDS: dict[str, list[str]] = {
         "min_bytes",
     ],
     "crispasr": ["name", "repo", "file", "expected", "backend"],
+    "transcribe-cpp": ["name", "repo", "file", "expected", "backend"],
     "acestep-cpp": ["name", "repo", "lm", "enc", "dit", "vae", "caption", "steps", "duration"],
     "omnivoice-cpp": ["name", "repo", "model_file", "codec_file", "lang", "text"],
 }
+
+
+def _model_entries(data: dict, tool_name: str) -> list[tuple[str, dict]]:
+    """Yield (tier, entry) pairs for a tool's declared model sets."""
+    models = data["tools"][tool_name].get("models", {})
+    if not isinstance(models, dict):
+        sys.exit(f"tool '{tool_name}' 'models' must be an object with smoke/full arrays")
+    entries: list[tuple[str, dict]] = []
+    for tier in ("smoke", "full"):
+        for entry in models.get(tier, []):
+            entries.append((tier, entry))
+    return entries
+
+
+def _tool_has_models(data: dict, tool_name: str) -> bool:
+    return bool(_model_entries(data, tool_name))
+
+
+def _validate_model_adapters(data: dict) -> None:
+    """Fail closed when a model-bearing tool lacks typed model or HF resolver adapters.
+
+    Missing adapter coverage must surface as an actionable error instead of silently
+    omitting the tool from prefetch/cache validation.
+    """
+    for name in data["tools"]:
+        entries = _model_entries(data, name)
+        if not entries:
+            continue
+        if name not in MODEL_FIELDS:
+            sys.exit(
+                f"tool '{name}' declares models but has no MODEL_FIELDS mapping in "
+                "scripts/manifest_cli.py; add one so 'models'/'hf-files' rows and "
+                "prefetch/cache validation cover it"
+            )
+        for tier, entry in entries:
+            digest = entry.get("sha256")
+            if name in _DIGEST_REQUIRED_TOOLS and digest is None:
+                label = entry.get("name", "<unnamed>")
+                sys.exit(f"tool '{name}' model '{label}' must declare sha256")
+            if digest is not None and (
+                not isinstance(digest, str) or not _SHA256_RE.fullmatch(digest)
+            ):
+                label = entry.get("name", "<unnamed>")
+                sys.exit(
+                    f"tool '{name}' model '{label}' has invalid sha256; "
+                    "expected 64 lowercase hexadecimal characters"
+                )
+            try:
+                _hf_pairs_for_entry(name, tier, entry)
+            except KeyError as exc:
+                label = entry.get("name", "<unnamed>")
+                sys.exit(
+                    f"tool '{name}' model '{label}' is missing field '{exc.args[0]}' "
+                    "required by the Hugging Face resolver in scripts/manifest_cli.py; "
+                    "fix the model entry in manifest.json or extend the resolver"
+                )
 
 
 def _arch_tool_include(data: dict, tools: list[str], respect_exclusions: bool = True) -> list[dict]:
@@ -151,13 +216,13 @@ def matrix_release_for_tools(data: dict, tools: list[str]) -> dict:
 
 def matrix_prefetch(data: dict, pipeline: str) -> dict:
     """Arch-independent tool list for HF cache pre-population."""
-    tools = [t for t in tools_for_pipeline(data, pipeline) if t in MODEL_FIELDS]
+    tools = [t for t in tools_for_pipeline(data, pipeline) if _tool_has_models(data, t)]
     return {"include": [{"tool": t} for t in tools]}
 
 
 def matrix_prefetch_for_tools(data: dict, tools: list[str], pipeline: str) -> dict:
     pipeline_tools = set(tools_for_pipeline(data, pipeline))
-    selected = [tool for tool in tools if tool in pipeline_tools and tool in MODEL_FIELDS]
+    selected = [tool for tool in tools if tool in pipeline_tools and _tool_has_models(data, tool)]
     return {"include": [{"tool": t} for t in selected]}
 
 
@@ -195,7 +260,7 @@ def read_manifest_at_ref(ref: str) -> dict:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
         sys.exit(f"cannot parse {ref}:manifest.json: {exc}")
-    _validate_manifest(data, allow_legacy_app_forks=True)
+    _validate_manifest(data, allow_legacy_app_forks=True, require_adapters=False)
     return data
 
 
@@ -305,7 +370,7 @@ def _hf_pairs_for_entry(tool: str, tier: str, entry: dict) -> list[tuple[str, st
     if tool == "whisper-cpp":
         model_id = entry["id"]
         pairs.append((WHISPER_HF_REPO, f"ggml-{model_id}.bin"))
-    elif tool in ("llama-cpp", "crispasr"):
+    elif tool in ("llama-cpp", "crispasr", "transcribe-cpp"):
         pairs.append((entry["repo"], entry["file"]))
     elif tool == "acestep-cpp":
         repo = entry["repo"]
@@ -322,7 +387,11 @@ def _hf_pairs_for_entry(tool: str, tier: str, entry: dict) -> list[tuple[str, st
             enc_repo = enc.get("repo", repo)
             pairs.append((enc_repo, resolve_quant_tokens(tier, enc["file"])))
     else:
-        sys.exit(f"tool '{tool}' has no hf_files mapping in manifest_cli.py")
+        sys.exit(
+            f"tool '{tool}' has no Hugging Face resolver mapping in scripts/manifest_cli.py; "
+            "add a branch to _hf_pairs_for_entry() so prefetch/cache validation does not "
+            "silently omit its models"
+        )
     return pairs
 
 
@@ -343,12 +412,29 @@ def hf_files(data: dict, tool: str, tier: str) -> list[tuple[str, str]]:
         sys.exit(f"unknown tool: {tool}")
     if tier not in ("smoke", "full"):
         sys.exit(f"unknown tier: {tier} (expected smoke|full)")
-    if tool not in MODEL_FIELDS:
+    if not _tool_has_models(data, tool):
         return []
     pairs: list[tuple[str, str]] = []
     for entry in data["tools"][tool].get("models", {}).get(tier, []):
         pairs.extend(_hf_pairs_for_entry(tool, tier, entry))
     return _dedupe_pairs(pairs)
+
+
+def model_sha256(data: dict, tool: str, tier: str, repo: str, file: str) -> str:
+    if tool not in data["tools"]:
+        sys.exit(f"unknown tool: {tool}")
+    if tier not in ("smoke", "full"):
+        sys.exit(f"unknown tier: {tier} (expected smoke|full)")
+    matches = [
+        entry.get("sha256", "")
+        for entry in data["tools"][tool].get("models", {}).get(tier, [])
+        if entry.get("repo") == repo and entry.get("file") == file
+    ]
+    if not matches:
+        return ""
+    if len(set(matches)) != 1:
+        sys.exit(f"ambiguous sha256 mapping for {tool}: {repo}/{file}")
+    return matches[0]
 
 
 def model_encoders(data: dict, tool: str, tier: str, model_name: str) -> list[tuple[str, str, str]]:
@@ -468,6 +554,11 @@ def main() -> None:
         if len(argv) < 3:
             sys.exit("usage: manifest_cli.py hf-files <tool> <smoke|full>")
         emit_hf_files(data, argv[1], argv[2])
+
+    elif cmd == "hf-sha256":
+        if len(argv) < 5:
+            sys.exit("usage: manifest_cli.py hf-sha256 <tool> <smoke|full> <repo> <file>")
+        print(model_sha256(data, argv[1], argv[2], argv[3], argv[4]))
 
     elif cmd == "model-encoders":
         if len(argv) < 4:

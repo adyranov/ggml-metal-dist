@@ -41,6 +41,10 @@
         "patches/crispasr/0002-indextts-aa-native.patch"
       ]
     },
+    "transcribe-cpp": {
+      "upstream_url": "https://github.com/handy-computer/transcribe.cpp.git",
+      "upstream_ref": "v0.1.3"
+    },
     "acestep-cpp": {
       "upstream_url": "https://github.com/ServeurpersoCom/acestep.cpp.git",
       "upstream_ref": "fa337757a0a0d4a576d129bb45dbef00ceced73c",
@@ -145,16 +149,6 @@
         ],
         "full": [
           {
-            "name": "Qwen3-0.6B",
-            "repo": "unsloth/Qwen3-0.6B-GGUF",
-            "file": "*[Qq]8_0*.gguf",
-            "samplers": "--reasoning off --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0",
-            "ctx": 4096,
-            "n_predict": 64,
-            "prompt": "Hi! In one short sentence, what is the capital of France?",
-            "expect": "paris"
-          },
-          {
             "name": "Qwen3.5-9B",
             "repo": "unsloth/Qwen3.5-9B-GGUF",
             "file": "Qwen3.5-9B-UD-Q6_K_XL.gguf",
@@ -235,16 +229,6 @@
           }
         ],
         "full": [
-          {
-            "name": "base.en",
-            "id": "base.en",
-            "expected": "country fellow americans"
-          },
-          {
-            "name": "small.en",
-            "id": "small.en",
-            "expected": "country fellow americans"
-          },
           {
             "name": "large-v3-turbo",
             "id": "large-v3-turbo",
@@ -329,7 +313,7 @@
             "name": "flux1-schnell",
             "family": "flux",
             "repo": "second-state/FLUX.1-schnell-GGUF",
-            "file_tpl": "flux1-schnell-{quant}.gguf",
+            "file_tpl": "flux1-schnell-Q4_0.gguf",
             "steps": 4,
             "cfg": 1.0,
             "neg": false,
@@ -429,6 +413,89 @@
             "backend": "qwen3",
             "repo": "cstr/qwen3-asr-0.6b-GGUF",
             "file": "qwen3-asr-0.6b-q4_k.gguf",
+            "expected": "country fellow americans"
+          }
+        ]
+      }
+    },
+    "transcribe-cpp": {
+      "repo": "transcribe-cpp",
+      "exclude_test_archs": [
+        "x86_64"
+      ],
+      "pipelines": [
+        "unit",
+        "prefetch",
+        "build",
+        "integration",
+        "release"
+      ],
+      "cmake_flags": [
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DTRANSCRIBE_METAL=ON",
+        "-DGGML_METAL_EMBED_LIBRARY=ON",
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DTRANSCRIBE_BUILD_TESTS=OFF",
+        "-DTRANSCRIBE_BUILD_EXAMPLES=ON",
+        "-DTRANSCRIBE_BUILD_TOOLS=OFF"
+      ],
+      "install_targets": [
+        "transcribe-cli"
+      ],
+      "binaries": [
+        "transcribe-cli"
+      ],
+      "depends_on": [],
+      "models": {
+        "smoke": [
+          {
+            "name": "whisper-tiny.en",
+            "repo": "handy-computer/whisper-tiny.en-gguf",
+            "file": "whisper-tiny.en-Q8_0.gguf",
+            "sha256": "e8c9b73c06344307d8b346e07fbe93dd88d894627854bcff31523f1ce44394fa",
+            "backend": "metal",
+            "expected": "country fellow americans"
+          },
+          {
+            "name": "parakeet-tdt_ctc-110m",
+            "repo": "handy-computer/parakeet-tdt_ctc-110m-gguf",
+            "file": "parakeet-tdt_ctc-110m-Q8_0.gguf",
+            "sha256": "7dd44c74a331d788a4e5f8b16913b3feb29ced22cf5613aad0e0f6cd30516296",
+            "backend": "metal",
+            "expected": "country fellow americans"
+          }
+        ],
+        "full": [
+          {
+            "name": "whisper-small.en",
+            "repo": "handy-computer/whisper-small.en-gguf",
+            "file": "whisper-small.en-Q8_0.gguf",
+            "sha256": "9614e6b7fda2d26018e4f268aece8ca25a83296ea0b534169a585b740bfd71ef",
+            "backend": "metal",
+            "expected": "country fellow americans"
+          },
+          {
+            "name": "parakeet-tdt-0.6b-v2",
+            "repo": "handy-computer/parakeet-tdt-0.6b-v2-gguf",
+            "file": "parakeet-tdt-0.6b-v2-Q8_0.gguf",
+            "sha256": "f0d0e99cebb6d3b83f1f7069b82b5d3c2e39a54545b0da039cb4bafd9c4e5caa",
+            "backend": "metal",
+            "expected": "country fellow americans"
+          },
+          {
+            "name": "cohere-transcribe-03-2026",
+            "repo": "handy-computer/cohere-transcribe-03-2026-gguf",
+            "file": "cohere-transcribe-03-2026-Q8_0.gguf",
+            "sha256": "931916663432fd895423a4291a8400221802b288967ca2d435fc5e3141c9e71e",
+            "backend": "metal",
+            "expected": "country fellow americans"
+          },
+          {
+            "name": "qwen3-asr-1.7b",
+            "repo": "handy-computer/qwen3-asr-1.7b-gguf",
+            "file": "Qwen3-ASR-1.7B-Q8_0.gguf",
+            "sha256": "9a0d81792dfea2d5f278b8a63deb3ea6e02139ce42c2301f32ea19c4f77526b7",
+            "backend": "metal",
             "expected": "country fellow americans"
           }
         ]

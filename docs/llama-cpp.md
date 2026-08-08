@@ -24,7 +24,7 @@ Metal-enabled [llama.cpp](https://github.com/ggml-org/llama.cpp) built from the 
 ./scripts/dist.sh validate llama-cpp --type performance --bin-dir /path/to/bin --no-build > bench.txt
 ```
 
-Smoke: Qwen3-0.6B UD-IQ2_XXS (~234 MB), chat mode, checks output contains "Paris". Full: multi-model suite + raw/chat + op tests. Benchmark: `llama-bench` pp512/tg128 t/s per full-tier model.
+Smoke: Qwen3-0.6B Q4_K_M, chat mode, checks output contains "Paris". Full: Qwen3.5-9B, Gemma-4-12B-it, and DeepSeek-Coder-V2-Lite (the sparse-MoE representative). Benchmark: `llama-bench` pp512/tg128 t/s per full-tier model.
 
 ## 🍺 Homebrew
 

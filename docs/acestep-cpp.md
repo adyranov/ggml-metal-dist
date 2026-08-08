@@ -31,7 +31,7 @@ The manifest uses the default `ggml_path` (`ggml`), so source prep replaces the 
 
 Generation is non-deterministic, so the pass criterion is structural: `ace-lm` produces an audio-codes JSON and `ace-synth` writes a valid, non-trivial RIFF/WAVE file.
 
-**CI note:** arm64 is excluded from CI validation (`exclude_archs`). GitHub-hosted arm64 macOS runners expose an *Apple Paravirtual* GPU with a reduced Metal feature set (no bfloat, no tensor API, ~5 GB working set) that can't run this pipeline, even though real Apple Silicon can. Release artifacts are still built for arm64 (release ignores `exclude_archs`); CI validation runs on the Intel runner, which has a real GPU.
+**CI note:** both hosted archs are excluded from model validation (`exclude_test_archs`). GitHub-hosted macOS runners expose reduced/virtualized Metal feature sets that cannot be treated as physical Metal qualification. Release artifacts are still built for both architectures; full ACE-Step model validation belongs on a manually managed Metal host.
 
 ## 🍺 Homebrew
 

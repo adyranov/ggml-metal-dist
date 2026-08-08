@@ -50,12 +50,15 @@ VERSION=v26.6.0
 ./scripts/dist.sh validate llama-cpp --full
 ./scripts/dist.sh validate whisper-cpp --full
 ./scripts/dist.sh validate stable-diffusion-cpp --full
+./scripts/dist.sh validate transcribe-cpp --full
+
+# Run the sequential full suite manually on a qualified macOS Metal host.
 
 
 # 3. Build artifacts locally
 ./scripts/dist.sh build llama-cpp --arch x86_64 --version "$VERSION"
 ./scripts/dist.sh build llama-cpp --arch arm64 --version "$VERSION"
-# ... repeat for whisper-cpp, stable-diffusion-cpp
+# ... repeat for whisper-cpp, stable-diffusion-cpp, transcribe-cpp
 
 # 4. Create release (dry run first)
 ./scripts/dist.sh publish-release --version "$VERSION" --dry-run
