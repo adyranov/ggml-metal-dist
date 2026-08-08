@@ -19,19 +19,9 @@ THREADS=${THREADS:-$(ncpu)}
 run_cli() {
     local label=$1 model=$2 backend=$3 expected=$4
     local args=(-m "$model" --backend "$backend" --threads "$THREADS" -q)
-    local out_log err_log rc=0
-
     detail "run | ${label} (backend=${backend}, threads=${THREADS})"
     describe_test "transcribe jfk.wav (${label}, ${backend})" "transcript contains: ${expected}"
-    out_log=$(_mktmp)
-    err_log=$(_mktmp)
-    echo_cmd "$TRANSCRIBE_CLI" "${args[@]}" "$SAMPLE"
-    "$TRANSCRIBE_CLI" "${args[@]}" "$SAMPLE" >"$out_log" 2>"$err_log" </dev/null || rc=$?
-    if [ "$rc" -ne 0 ]; then
-        [ ! -s "$err_log" ] || cat "$err_log" >&2
-        return 1
-    fi
-    RUN_OUTPUT=$(cat "$out_log")
+    run_capture "$TRANSCRIBE_CLI" "${args[@]}" "$SAMPLE" </dev/null || return 1
     # transcribe.cpp reports the effective backend as the bound ggml device
     # name (e.g. "backend: MTL0"); fail on CPU/Vulkan fallback.
     assert_metal_backend "$RUN_OUTPUT" "$label" || return 1

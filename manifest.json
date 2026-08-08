@@ -420,6 +420,9 @@
     },
     "transcribe-cpp": {
       "repo": "transcribe-cpp",
+      "exclude_test_archs": [
+        "x86_64"
+      ],
       "pipelines": [
         "unit",
         "prefetch",
