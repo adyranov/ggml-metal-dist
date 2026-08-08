@@ -400,11 +400,12 @@ cmd_prefetch() {
     fi
 
     prefetch_one() {
-        local t=$1 repo pattern
+        local t=$1 repo pattern digest
         phase "Prefetch: ${t} (${model_tier})"
         while IFS=$'\t' read -r repo pattern; do
             [ -n "$repo" ] || continue
-            hf_fetch "$repo" "$pattern" || die "prefetch failed: ${repo}/${pattern}"
+            digest=$(manifest_hf_sha256 "$t" "$model_tier" "$repo" "$pattern")
+            hf_fetch "$repo" "$pattern" "" "$digest" || die "prefetch failed: ${repo}/${pattern}"
         done < <(manifest_hf_files "$t" "$model_tier")
     }
 
@@ -459,7 +460,7 @@ cmd_verify_hf_cache() {
     is_manifest_tool "$tool" || die "unknown tool: $tool (expected one of: $(tools_usage))"
 
     hf_init_env
-    local repo pattern find_pat cache
+    local repo pattern find_pat cache digest cached
     cache=$(hf_cache_dir)
     local missing=0
     while IFS=$'\t' read -r repo pattern; do
@@ -469,7 +470,13 @@ cmd_verify_hf_cache() {
             *'?'*|*'*'*) find_pat=$pattern ;;
             *) ;;
         esac
-        if _hf_find_cached "$cache" "$repo" "$find_pat" >/dev/null; then
+        digest=$(manifest_hf_sha256 "$tool" "$model_tier" "$repo" "$pattern")
+        if [ -n "$digest" ]; then
+            cached=$(_hf_find_cached_matching "$cache" "$repo" "$find_pat" "$digest") || true
+        else
+            cached=$(_hf_find_cached "$cache" "$repo" "$find_pat") || true
+        fi
+        if [ -n "$cached" ]; then
             detail "hf-cache | ok ${repo}/${pattern}"
         else
             detail "hf-cache | miss ${repo}/${pattern}"

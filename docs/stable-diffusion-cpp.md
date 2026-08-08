@@ -15,7 +15,8 @@ Metal-enabled [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.
 ```
 
 Downloads model weights via the Hugging Face CLI. Full validation is GPU-heavy
-(1024×1024, Q8_0).
+(1024×1024). FLUX.1-schnell is pinned to Q4_0 because its Q8_0 diffusion
+weights plus the T5 encoder exceed the 16 GB target budget.
 
 ## 🍺 Homebrew
 

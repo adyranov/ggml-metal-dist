@@ -13,3 +13,4 @@ __pycache__/
 *.log
 .vscode/tasks.json
 .plannotator/
+.slim/deepwork/
