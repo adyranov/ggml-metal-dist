@@ -43,7 +43,7 @@
     },
     "transcribe-cpp": {
       "upstream_url": "https://github.com/handy-computer/transcribe.cpp.git",
-      "upstream_ref": "v0.1.3"
+      "upstream_ref": "v0.2.3"
     },
     "acestep-cpp": {
       "upstream_url": "https://github.com/ServeurpersoCom/acestep.cpp.git",
