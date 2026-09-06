@@ -16,7 +16,7 @@
       "url": "https://github.com/adyranov/ggml.git",
       "branch": "release/0.19.0",
       "upstream_url": "https://github.com/ggml-org/ggml.git",
-      "upstream_ref": "v0.19.0"
+      "upstream_ref": "v0.23.0"
     },
     "llama-cpp": {
       "upstream_url": "https://github.com/ggml-org/llama.cpp.git",
